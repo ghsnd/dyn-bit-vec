@@ -48,7 +48,6 @@ impl Block {
 		}
 		let word_index = index / 32;
 		let bit_index = (index % 32) as u8;
-		let last_word_index = self.len / 32;
 
 		let usize_index = word_index as usize;
 		let mut last_bit = false;
@@ -62,7 +61,7 @@ impl Block {
 			word.set_bit(bit_index, bit);
 		} 
 		// for every word from word_index + 1 until end: shift left; put last_bit as first bit; remember last_bit etc
-		let word_iter = self.bits.iter_mut().skip(usize_index);
+		let word_iter = self.bits.iter_mut().skip(usize_index + 1);
 		for word in word_iter {
 			let first_bit = last_bit;
 			last_bit = word.get_bit(31);
@@ -74,8 +73,8 @@ impl Block {
 
 impl fmt::Debug for Block {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "Block:({}, {}, ", self.len, self.popcnt);
-		for word in &self.bits {
+		write!(f, "Block: ({}, {}, ", self.len, self.popcnt);
+		for word in self.bits.iter().rev() {
 			write!(f, "{:032b} ", word);
 		}
 		write!(f, ")")
@@ -108,12 +107,17 @@ use dyn_bit_vec::Block;
 	#[test]
 	fn insert() {
 		let mut block = Block::new();
-		let mut bit = true;
 		block.insert(true, 0);
 		println!("{:?}", block);
-		for c in 0..63 {
+		for c in 1..42 {
 			block.insert(true, 1);
-			bit = !bit;
+			println!("{:?}", block);
+		}
+		block.insert(false, 42);
+		block.insert(true, 43);
+		println!("{:?}", block);
+		for c in 42..62 {
+			block.insert(true, c);
 			println!("{:?}", block);
 		}
 	}
