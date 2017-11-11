@@ -6,7 +6,7 @@ use std::fmt;
 use self::bit_field::BitField;
 
 pub struct Block {
-	bits: Vec<u32>,
+	words: Vec<u32>,
 	len: u16,
 	popcnt: u16
 }
@@ -14,7 +14,7 @@ pub struct Block {
 impl Block {
 	pub fn new() -> Self {
 		Block {
-			bits: Vec::new(),
+			words: Vec::new(),
 			len: 0,
 			popcnt: 0
 		}
@@ -25,7 +25,7 @@ impl Block {
 		temp_vec.extend_from_slice(slice);
 		let bit_count = slice.iter().fold(0, |nr_bits, number| nr_bits + number.count_ones()) as u16;
 		Block {
-			bits: temp_vec,
+			words: temp_vec,
 			len: slice.len() as u16 * 32,
 			popcnt: bit_count
 		}
@@ -40,7 +40,7 @@ impl Block {
 			panic!("Index out of bound: index = {} while the length is {}", index, self.len);
 		}
 		if self.len % 32 == 0 {
-			self.bits.push(0);
+			self.words.push(0);
 		}
 		self.len += 1;
 		if (bit) {
@@ -52,16 +52,16 @@ impl Block {
 		let usize_index = word_index as usize;
 		let mut last_bit = false;
 		// change the word that has to be changed
-		if let Some(word) = self.bits.get_mut(usize_index) {
+		if let Some(word) = self.words.get_mut(usize_index) {
 			last_bit = word.get_bit(31);
-			for remaining_bit_index in (bit_index + 1 .. 32).rev() {
+			for remaining_bit_index in (bit_index + 1..32).rev() {
 				let prev_bit = word.get_bit(remaining_bit_index - 1);
 				word.set_bit(remaining_bit_index, prev_bit);
 			}
 			word.set_bit(bit_index, bit);
 		} 
 		// for every word from word_index + 1 until end: shift left; put last_bit as first bit; remember last_bit etc
-		let word_iter = self.bits.iter_mut().skip(usize_index + 1);
+		let word_iter = self.words.iter_mut().skip(usize_index + 1);
 		for word in word_iter {
 			let first_bit = last_bit;
 			last_bit = word.get_bit(31);
@@ -74,7 +74,7 @@ impl Block {
 impl fmt::Debug for Block {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "Block: ({}, {}, ", self.len, self.popcnt);
-		for word in self.bits.iter().rev() {
+		for word in self.words.iter().rev() {
 			write!(f, "{:032b} ", word);
 		}
 		write!(f, ")")
