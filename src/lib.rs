@@ -35,6 +35,7 @@ impl Block {
 		self.len
 	}
 
+	// insert a bit at position 'index'
 	pub fn insert(&mut self, bit: bool, index: u16) {
 		if index > self.len {
 			panic!("Index out of bound: index = {} while the length is {}", index, self.len);
@@ -43,25 +44,21 @@ impl Block {
 			self.words.push(0);
 		}
 		self.len += 1;
-		if (bit) {
+		if bit {
 			self.popcnt += 1;
 		}
-		let word_index = index / 32;
 		let bit_index = (index % 32) as u8;
+		let word_index = (index / 32) as usize;
 
-		let usize_index = word_index as usize;
 		let mut last_bit = false;
 		// change the word that has to be changed
-		if let Some(word) = self.words.get_mut(usize_index) {
+		if let Some(word) = self.words.get_mut(word_index) {
 			last_bit = word.get_bit(31);
-			for remaining_bit_index in (bit_index + 1..32).rev() {
-				let prev_bit = word.get_bit(remaining_bit_index - 1);
-				word.set_bit(remaining_bit_index, prev_bit);
-			}
-			word.set_bit(bit_index, bit);
+			Self::insert_in_word(word, bit_index, bit);
 		} 
+
 		// for every word from word_index + 1 until end: shift left; put last_bit as first bit; remember last_bit etc
-		let word_iter = self.words.iter_mut().skip(usize_index + 1);
+		let word_iter = self.words.iter_mut().skip(word_index + 1);
 		for word in word_iter {
 			let first_bit = last_bit;
 			last_bit = word.get_bit(31);
@@ -69,6 +66,34 @@ impl Block {
 			*word.set_bit(0, first_bit);
 		}
 	}
+
+	// push a bit to the end. This can slightly more efficient than insert(bit, len())
+	// because insert requires additional checks
+	pub fn push(&mut self, bit: bool) {
+		let bit_index = (self.len % 32) as u8;
+		if bit_index == 0 {
+			self.words.push(0);
+		}
+		self.len += 1;
+		if bit {
+			self.popcnt += 1;
+			let word_index = (self.len / 32) as usize;
+			if let Some(word) = self.words.get_mut(word_index) {
+				word.set_bit(bit_index, bit);
+			}
+		}
+	}
+
+	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
+	#[inline]
+	fn insert_in_word(word: &mut u32, bit_index: u8, bit: bool) {
+		for remaining_bit_index in (bit_index + 1..32).rev() {
+			let prev_bit = word.get_bit(remaining_bit_index - 1);
+			word.set_bit(remaining_bit_index, prev_bit);
+		}
+		word.set_bit(bit_index, bit);
+	}
+
 }
 
 impl fmt::Debug for Block {
@@ -109,7 +134,7 @@ use dyn_bit_vec::Block;
 		let mut block = Block::new();
 		block.insert(true, 0);
 		println!("{:?}", block);
-		for c in 1..42 {
+		for _ in 1..42 {
 			block.insert(true, 1);
 			println!("{:?}", block);
 		}
@@ -118,6 +143,17 @@ use dyn_bit_vec::Block;
 		println!("{:?}", block);
 		for c in 42..62 {
 			block.insert(true, c);
+			println!("{:?}", block);
+		}
+	}
+
+		#[test]
+	fn push() {
+		let mut block = Block::new();
+		let mut bit = true;
+		for _ in 1..42 {
+			block.push(bit);
+			bit = !bit;
 			println!("{:?}", block);
 		}
 	}
