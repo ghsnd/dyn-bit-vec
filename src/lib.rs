@@ -112,6 +112,7 @@ impl fmt::Debug for Block {
 mod tests {
 
 use dyn_bit_vec::Block;
+use std::u16::MAX;
 
 	#[test]
 	fn it_works() {
@@ -120,7 +121,6 @@ use dyn_bit_vec::Block;
 		println!("int_1: {:032b} - {}", int_1, int_1);
 		let int_2 = int_1 << 9;
 		println!("int_1 << 9: {:032b} - {}", int_2, int_2);
-		
 	}
 
 	#[test]
@@ -147,7 +147,7 @@ use dyn_bit_vec::Block;
 		}
 	}
 
-		#[test]
+	#[test]
 	fn push() {
 		let mut block = Block::new();
 		let mut bit = true;
@@ -157,4 +157,15 @@ use dyn_bit_vec::Block;
 			println!("{:?}", block);
 		}
 	}
+
+	#[test]
+	fn overflow() {
+		let mut block = Block::from_u32_slice(&[256; 2047]);
+		//println!("{:?}", block);
+		for _ in 0..32 {
+			block.push(true);
+		}
+		println!("{:?}", block);
+	}
+
 }
