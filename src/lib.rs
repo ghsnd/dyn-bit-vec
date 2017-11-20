@@ -5,15 +5,15 @@ use std::vec::Vec;
 use std::fmt;
 use self::bit_field::BitField;
 
-pub struct Block {
+pub struct DBVec {
 	words: Vec<u32>,
-	len: u16,
-	popcnt: u16
+	len: u64,
+	popcnt: u64
 }
 
-impl Block {
+impl DBVec {
 	pub fn new() -> Self {
-		Block {
+		DBVec {
 			words: Vec::new(),
 			len: 0,
 			popcnt: 0
@@ -23,20 +23,20 @@ impl Block {
 	pub fn from_u32_slice(slice: &[u32]) -> Self {
 		let mut temp_vec = Vec::with_capacity(slice.len());
 		temp_vec.extend_from_slice(slice);
-		let bit_count = slice.iter().fold(0, |nr_bits, number| nr_bits + number.count_ones()) as u16;
-		Block {
+		let bit_count = slice.iter().fold(0, |nr_bits, number| nr_bits + number.count_ones());
+		DBVec {
 			words: temp_vec,
-			len: slice.len() as u16 * 32,
-			popcnt: bit_count
+			len: slice.len() as u64 * 32,
+			popcnt: bit_count as u64
 		}
 	}
 
-	pub fn len(&self) -> u16 {
+	pub fn len(&self) -> u64 {
 		self.len
 	}
 
 	// insert a bit at position 'index'
-	pub fn insert(&mut self, bit: bool, index: u16) {
+	pub fn insert(&mut self, bit: bool, index: u64) {
 		if index > self.len {
 			panic!("Index out of bound: index = {} while the length is {}", index, self.len);
 		}
@@ -96,9 +96,9 @@ impl Block {
 
 }
 
-impl fmt::Debug for Block {
+impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "Block: ({}, {}, ", self.len, self.popcnt);
+		write!(f, "DBVec: ({}, {}, ", self.len, self.popcnt);
 		for word in self.words.iter().rev() {
 			write!(f, "{:032b} ", word);
 		}
@@ -111,7 +111,7 @@ impl fmt::Debug for Block {
 #[cfg(test)]
 mod tests {
 
-use dyn_bit_vec::Block;
+use dyn_bit_vec::DBVec;
 use std::u16::MAX;
 
 	#[test]
@@ -125,47 +125,47 @@ use std::u16::MAX;
 
 	#[test]
 	fn from_u32_slice() {
-		let block = Block::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
-		println!("{:?}", block);
+		let DBVec = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
+		println!("{:?}", DBVec);
 	}
 
 	#[test]
 	fn insert() {
-		let mut block = Block::new();
-		block.insert(true, 0);
-		println!("{:?}", block);
+		let mut DBVec = DBVec::new();
+		DBVec.insert(true, 0);
+		println!("{:?}", DBVec);
 		for _ in 1..42 {
-			block.insert(true, 1);
-			println!("{:?}", block);
+			DBVec.insert(true, 1);
+			println!("{:?}", DBVec);
 		}
-		block.insert(false, 42);
-		block.insert(true, 43);
-		println!("{:?}", block);
+		DBVec.insert(false, 42);
+		DBVec.insert(true, 43);
+		println!("{:?}", DBVec);
 		for c in 42..62 {
-			block.insert(true, c);
-			println!("{:?}", block);
+			DBVec.insert(true, c);
+			println!("{:?}", DBVec);
 		}
 	}
 
 	#[test]
 	fn push() {
-		let mut block = Block::new();
+		let mut DBVec = DBVec::new();
 		let mut bit = true;
 		for _ in 1..42 {
-			block.push(bit);
+			DBVec.push(bit);
 			bit = !bit;
-			println!("{:?}", block);
+			println!("{:?}", DBVec);
 		}
 	}
 
 	#[test]
 	fn overflow() {
-		let mut block = Block::from_u32_slice(&[256; 2047]);
-		//println!("{:?}", block);
+		let mut DBVec = DBVec::from_u32_slice(&[256; 2047]);
+		//println!("{:?}", DBVec);
 		for _ in 0..32 {
-			block.push(true);
+			DBVec.push(true);
 		}
-		println!("{:?}", block);
+		println!("{:?}", DBVec);
 	}
 
 }
