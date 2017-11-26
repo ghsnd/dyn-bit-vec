@@ -31,8 +31,38 @@ impl DBVec {
 		}
 	}
 
+	pub fn from_bytes(bytes: &[u8]) -> Self {
+		let mut temp_vec: Vec<u32> = Vec::with_capacity(bytes.len() * 4);
+		let mut temp_int = 0u32;
+		let mut bit_count = 0u64;
+		for byte_pos in bytes.iter().enumerate() {
+			temp_int = temp_int | (*byte_pos.1 as u32);
+			if byte_pos.0 % 4 == 3 {
+				bit_count += temp_int.count_ones() as u64;
+				temp_vec.push(temp_int);
+				temp_int = 0;
+			}
+			temp_int = temp_int << 8;
+			println!("{:032b}", temp_int); 
+		}
+		if bytes.len() % 4 != 0 {
+			temp_int = temp_int >> 8;
+			bit_count += temp_int.count_ones() as u64;
+			temp_vec.push(temp_int);
+		}
+		DBVec {
+			words: temp_vec,
+			len: bytes.len() as u64 * 8,
+			popcnt: bit_count
+		}
+	}
+
 	pub fn len(&self) -> u64 {
 		self.len
+	}
+
+	pub fn pop_cnt(&self) -> u64 {
+		self.popcnt
 	}
 
 	// insert a bit at position 'index'
@@ -125,40 +155,40 @@ use std::u16::MAX;
 
 	#[test]
 	fn from_u32_slice() {
-		let DBVec = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
-		println!("{:?}", DBVec);
+		let vec = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
+		println!("{:?}", vec);
 	}
 
 	#[test]
 	fn insert() {
-		let mut DBVec = DBVec::new();
-		DBVec.insert(true, 0);
-		println!("{:?}", DBVec);
+		let mut vec = DBVec::new();
+		vec.insert(true, 0);
+		println!("{:?}", vec);
 		for _ in 1..42 {
-			DBVec.insert(true, 1);
-			println!("{:?}", DBVec);
+			vec.insert(true, 1);
+			println!("{:?}", vec);
 		}
-		DBVec.insert(false, 42);
-		DBVec.insert(true, 43);
-		println!("{:?}", DBVec);
+		vec.insert(false, 42);
+		vec.insert(true, 43);
+		println!("{:?}", vec);
 		for c in 42..62 {
-			DBVec.insert(true, c);
-			println!("{:?}", DBVec);
+			vec.insert(true, c);
+			println!("{:?}", vec);
 		}
 	}
 
 	#[test]
 	fn push() {
-		let mut DBVec = DBVec::new();
+		let mut vec = DBVec::new();
 		let mut bit = true;
 		for _ in 1..42 {
-			DBVec.push(bit);
+			vec.push(bit);
 			bit = !bit;
-			println!("{:?}", DBVec);
+			println!("{:?}", vec);
 		}
 	}
 
-	#[test]
+/*	#[test]
 	fn overflow() {
 		let mut DBVec = DBVec::from_u32_slice(&[256; 2047]);
 		//println!("{:?}", DBVec);
@@ -166,6 +196,16 @@ use std::u16::MAX;
 			DBVec.push(true);
 		}
 		println!("{:?}", DBVec);
+	}*/
+
+	#[test]
+	fn from_bytes() {
+		let vec = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		//let vec = DBVec::from_bytes(&[0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000]);
+		//let vec = DBVec::from_bytes(&[0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000]);
+		println!("{:?}", vec);
+		assert_eq!(48, vec.len());
+		assert_eq!(11, vec.pop_cnt());
 	}
 
 }
