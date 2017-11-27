@@ -129,7 +129,7 @@ impl DBVec {
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "DBVec: ({}, {}, ", self.len, self.popcnt);
-		for word in self.words.iter().rev() {
+		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
 		}
 		write!(f, ")")
