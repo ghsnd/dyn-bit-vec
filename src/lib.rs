@@ -9,8 +9,7 @@ use self::rayon::prelude::*;
 
 pub struct DBVec {
 	words: Vec<u32>,
-	len: u64,
-	popcnt: u64
+	len: u64,	// can be u8 and calculated as words * 32 + len
 }
 
 impl DBVec {
@@ -18,29 +17,24 @@ impl DBVec {
 		DBVec {
 			words: Vec::new(),
 			len: 0,
-			popcnt: 0
 		}
 	}
 
 	pub fn from_u32_slice(slice: &[u32]) -> Self {
 		let mut temp_vec = Vec::with_capacity(slice.len());
 		temp_vec.extend_from_slice(slice);
-		let bit_count = slice.iter().fold(0, |nr_bits, number| nr_bits + number.count_ones());
 		DBVec {
 			words: temp_vec,
 			len: slice.len() as u64 * 32,
-			popcnt: bit_count as u64
 		}
 	}
 
 	pub fn from_bytes(bytes: &[u8]) -> Self {
 		let mut temp_vec: Vec<u32> = Vec::with_capacity(bytes.len() * 4);
 		let mut temp_int = 0u32;
-		let mut bit_count = 0u64;
 		for byte_pos in bytes.iter().enumerate() {
 			temp_int = temp_int | (*byte_pos.1 as u32);
 			if byte_pos.0 % 4 == 3 {
-				bit_count += temp_int.count_ones() as u64;
 				temp_vec.push(temp_int);
 				temp_int = 0;
 			}
@@ -49,13 +43,11 @@ impl DBVec {
 		}
 		if bytes.len() % 4 != 0 {
 			temp_int = temp_int >> 8;
-			bit_count += temp_int.count_ones() as u64;
 			temp_vec.push(temp_int);
 		}
 		DBVec {
 			words: temp_vec,
 			len: bytes.len() as u64 * 8,
-			popcnt: bit_count
 		}
 	}
 
@@ -63,9 +55,12 @@ impl DBVec {
 		self.len
 	}
 
-	// for test / bench only
 	pub fn pop_cnt(&self) -> u64 {
-		self.popcnt
+		if self.words.len() < 1000000 {
+			self.pop_cnt_words()
+		} else {
+			self.pop_cnt_words_parallel()
+		}
 	}
 
 	pub fn pop_cnt_words(&self) -> u64 {
@@ -73,7 +68,6 @@ impl DBVec {
 	}
 
 	pub fn pop_cnt_words_parallel(&self) -> u64 {
-		//self.words.par_iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
 		self.words.par_iter()
 			.map(|word| word.count_ones() as u64)
 			.sum()
@@ -88,9 +82,6 @@ impl DBVec {
 			self.words.push(0);
 		}
 		self.len += 1;
-		if bit {
-			self.popcnt += 1;
-		}
 		let bit_index = (index % 32) as u8;
 		let word_index = (index / 32) as usize;
 
@@ -120,7 +111,6 @@ impl DBVec {
 		}
 		self.len += 1;
 		if bit {
-			self.popcnt += 1;
 			let word_index = (self.len / 32) as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
 				word.set_bit(bit_index, bit);
@@ -142,7 +132,7 @@ impl DBVec {
 
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "DBVec: ({}, {}, ", self.len, self.popcnt);
+		write!(f, "DBVec: ({}, {}, ", self.len, self.pop_cnt());
 		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
 		}
@@ -202,16 +192,6 @@ use std::u16::MAX;
 		}
 	}
 
-/*	#[test]
-	fn overflow() {
-		let mut DBVec = DBVec::from_u32_slice(&[256; 2047]);
-		//println!("{:?}", DBVec);
-		for _ in 0..32 {
-			DBVec.push(true);
-		}
-		println!("{:?}", DBVec);
-	}*/
-
 	#[test]
 	fn from_bytes() {
 		let vec = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
@@ -222,10 +202,4 @@ use std::u16::MAX;
 		assert_eq!(11, vec.pop_cnt());
 	}
 
-	#[test]
-	fn pop_cnt_words() {
-		let large_vec = vec![1074823176u32; 1000000000];
-		let db_vec = DBVec::from_u32_slice(&large_vec);
-		println!("len: {}, popcnt: {}", db_vec.len(), db_vec.pop_cnt());
-	}
 }
