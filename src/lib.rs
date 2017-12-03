@@ -1,9 +1,11 @@
-mod dyn_bit_vec {
+pub mod dyn_bit_vec {
 
 extern crate bit_field;
+extern crate rayon;
 use std::vec::Vec;
 use std::fmt;
 use self::bit_field::BitField;
+use self::rayon::prelude::*;
 
 pub struct DBVec {
 	words: Vec<u32>,
@@ -61,8 +63,20 @@ impl DBVec {
 		self.len
 	}
 
+	// for test / bench only
 	pub fn pop_cnt(&self) -> u64 {
 		self.popcnt
+	}
+
+	pub fn pop_cnt_words(&self) -> u64 {
+		self.words.iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64)
+	}
+
+	pub fn pop_cnt_words_parallel(&self) -> u64 {
+		//self.words.par_iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+		self.words.par_iter()
+			.map(|word| word.count_ones() as u64)
+			.sum()
 	}
 
 	// insert a bit at position 'index'
@@ -208,4 +222,10 @@ use std::u16::MAX;
 		assert_eq!(11, vec.pop_cnt());
 	}
 
+	#[test]
+	fn pop_cnt_words() {
+		let large_vec = vec![1074823176u32; 1000000000];
+		let db_vec = DBVec::from_u32_slice(&large_vec);
+		println!("len: {}, popcnt: {}", db_vec.len(), db_vec.pop_cnt());
+	}
 }

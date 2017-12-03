@@ -5,3 +5,4 @@ authors = ["Gerald H <gh@example.com>"]
 
 [dependencies]
 bit_field = "0.8.0"
+rayon = "0.9"
