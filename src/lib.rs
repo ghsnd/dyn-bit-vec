@@ -55,6 +55,10 @@ impl DBVec {
 		self.len
 	}
 
+	fn inc_len(&mut self) {
+		self.len += 1;
+	}
+
 	pub fn pop_cnt(&self) -> u64 {
 		if self.words.len() < 1000000 {
 			self.pop_cnt_words()
@@ -75,13 +79,13 @@ impl DBVec {
 
 	// insert a bit at position 'index'
 	pub fn insert(&mut self, bit: bool, index: u64) {
-		if index > self.len {
-			panic!("Index out of bound: index = {} while the length is {}", index, self.len);
+		if index > self.len() {
+			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
 		}
-		if self.len % 32 == 0 {
+		if self.len() % 32 == 0 {
 			self.words.push(0);
 		}
-		self.len += 1;
+		self.inc_len();
 		let bit_index = (index % 32) as u8;
 		let word_index = (index / 32) as usize;
 
@@ -105,13 +109,13 @@ impl DBVec {
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
-		let bit_index = (self.len % 32) as u8;
+		let bit_index = (self.len() % 32) as u8;
 		if bit_index == 0 {
 			self.words.push(0);
 		}
-		self.len += 1;
+		self.inc_len();
 		if bit {
-			let word_index = (self.len / 32) as usize;
+			let word_index = (self.len() / 32) as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
 				word.set_bit(bit_index, bit);
 			}
@@ -132,7 +136,7 @@ impl DBVec {
 
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "DBVec: ({}, {}, ", self.len, self.pop_cnt());
+		write!(f, "DBVec: ({}, {}, ", self.len(), self.pop_cnt());
 		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
 		}
