@@ -7,9 +7,10 @@ use std::fmt;
 use self::bit_field::BitField;
 use self::rayon::prelude::*;
 
+#[derive(Eq, PartialEq)]
 pub struct DBVec {
 	words: Vec<u32>,
-	len_rem: u8,	// can be u8 and calculated as words * 32 + len
+	len_rem: u8,	// length = (words.length - 1) * 32 + len_rem
 }
 
 impl DBVec {
@@ -60,8 +61,9 @@ impl DBVec {
 
 	fn inc_len(&mut self) {
 		self.len_rem += 1;
-		if self.len_rem % 32 == 0 {
+		if self.len_rem == 32 || self.words.len() == 0 {
 			self.words.push(0);
+			self.len_rem = 0;
 		}
 	}
 
@@ -204,6 +206,15 @@ use std::u16::MAX;
 		println!("{:?}", vec);
 		assert_eq!(48, vec.len());
 		assert_eq!(11, vec.pop_cnt());
+	}
+
+	#[test]
+	fn test_eq() {
+		let mut vec1 = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
+		let mut vec2 = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
+		assert_eq!(vec1, vec2);
+		vec1.push(true);
+		assert!(vec1 != vec2);
 	}
 
 }
