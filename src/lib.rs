@@ -134,6 +134,28 @@ impl DBVec {
 		word.set_bit(bit_index, bit);
 	}
 
+	pub fn starts_with(&self, other: &Self) -> bool {
+		if other.len() > self.len() {
+			false
+		} else if other.len() == 0 {
+			true
+		} else {
+			let common_word_len = other.words.len() - 1;
+			let self_words = &self.words[..common_word_len];
+			let other_words = &other.words[..common_word_len];
+			if self.words == other.words {
+				let self_last_word = self.words.last().unwrap();
+				let other_last_word = other.words.last().unwrap();
+				let bits_to_compare = (other.len() % 32) as u8;
+				let self_bits = self_last_word.get_bits(0..bits_to_compare);
+				let other_bits = other_last_word.get_bits(0..bits_to_compare);
+				self_bits == other_bits
+			} else {
+				false
+			}
+		}
+	}
+
 }
 
 impl fmt::Debug for DBVec {
@@ -211,10 +233,35 @@ use std::u16::MAX;
 	#[test]
 	fn test_eq() {
 		let mut vec1 = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
-		let mut vec2 = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
+		let vec2 = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
 		assert_eq!(vec1, vec2);
 		vec1.push(true);
 		assert!(vec1 != vec2);
 	}
 
+	fn starts_with() {
+		// test 1: empty vecs
+		let vec1 = DBVec::new();
+		let vec2 = DBVec::new();
+		assert!(vec1.starts_with(&vec2));
+		assert!(vec2.starts_with(&vec1));
+
+		// test 2: same vectors, one word long
+		let vec3 = DBVec::from_u32_slice(&[1025]);
+		let vec4 = DBVec::from_u32_slice(&[1025]);
+		assert!(vec3.starts_with(&vec4));
+		assert!(vec4.starts_with(&vec3));
+
+		// test 3: same vectors, length not on word boundary
+		let vec5 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		let vec6 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		assert!(vec5.starts_with(&vec6));
+		assert!(vec6.starts_with(&vec5));
+
+		// test 4: different vectors
+		let vec7 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10100000]);
+		let vec8 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		assert!(vec8.starts_with(&vec7));
+		assert!(!vec7.starts_with(&vec8));
+	}
 }
