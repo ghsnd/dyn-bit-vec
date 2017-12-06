@@ -134,6 +134,8 @@ impl DBVec {
 		word.set_bit(bit_index, bit);
 	}
 
+	// Returns true if 'other' is a subvector of 'self', starting at index 0.
+	// Equal vectors start with each other.
 	pub fn starts_with(&self, other: &Self) -> bool {
 		if other.len() > self.len() {
 			false
@@ -141,6 +143,7 @@ impl DBVec {
 			true
 		} else {
 			let common_word_len = other.words.len() - 1;
+			// may be parallellized for large vectors?
 			let self_words = &self.words[..common_word_len];
 			let other_words = &other.words[..common_word_len];
 			if self.words == other.words {
