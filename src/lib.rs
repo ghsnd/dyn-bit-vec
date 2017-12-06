@@ -113,9 +113,6 @@ impl DBVec {
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
 		let bit_index = (self.len() % 32) as u8;
-		if bit_index == 0 {
-			self.words.push(0);
-		}
 		self.inc_len();
 		if bit {
 			let word_index = (self.len() / 32) as usize;
