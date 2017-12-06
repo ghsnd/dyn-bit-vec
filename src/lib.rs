@@ -9,14 +9,14 @@ use self::rayon::prelude::*;
 
 pub struct DBVec {
 	words: Vec<u32>,
-	len: u64,	// can be u8 and calculated as words * 32 + len
+	len_rem: u8,	// can be u8 and calculated as words * 32 + len
 }
 
 impl DBVec {
 	pub fn new() -> Self {
 		DBVec {
 			words: Vec::new(),
-			len: 0,
+			len_rem: 0,
 		}
 	}
 
@@ -25,7 +25,7 @@ impl DBVec {
 		temp_vec.extend_from_slice(slice);
 		DBVec {
 			words: temp_vec,
-			len: slice.len() as u64 * 32,
+			len_rem: 0,
 		}
 	}
 
@@ -47,16 +47,22 @@ impl DBVec {
 		}
 		DBVec {
 			words: temp_vec,
-			len: bytes.len() as u64 * 8,
+			len_rem: ((bytes.len() * 8) % 32) as u8,
 		}
 	}
 
 	pub fn len(&self) -> u64 {
-		self.len
+		match self.words.len() {
+			0 => self.len_rem as u64,
+			_ => ((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
+		}
 	}
 
 	fn inc_len(&mut self) {
-		self.len += 1;
+		self.len_rem += 1;
+		if self.len_rem % 32 == 0 {
+			self.words.push(0);
+		}
 	}
 
 	pub fn pop_cnt(&self) -> u64 {
@@ -81,9 +87,6 @@ impl DBVec {
 	pub fn insert(&mut self, bit: bool, index: u64) {
 		if index > self.len() {
 			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
-		}
-		if self.len() % 32 == 0 {
-			self.words.push(0);
 		}
 		self.inc_len();
 		let bit_index = (index % 32) as u8;
