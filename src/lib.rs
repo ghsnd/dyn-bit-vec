@@ -6,6 +6,7 @@ use std::vec::Vec;
 use std::fmt;
 use self::bit_field::BitField;
 use self::rayon::prelude::*;
+use std::u32::MAX;
 
 #[derive(Eq, PartialEq)]
 pub struct DBVec {
@@ -53,6 +54,7 @@ impl DBVec {
 	}
 
 	pub fn len(&self) -> u64 {
+		// FIXME: error when initialised from slice
 		match self.words.len() {
 			0 => self.len_rem as u64,
 			_ => ((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
@@ -63,7 +65,9 @@ impl DBVec {
 		self.len_rem += 1;
 		if self.len_rem == 32 || self.words.len() == 0 {
 			self.words.push(0);
-			self.len_rem = 0;
+			if self.len_rem == 32 {
+				self.len_rem = 0;
+			}
 		}
 	}
 
@@ -124,6 +128,19 @@ impl DBVec {
 		}
 	}
 
+	pub fn insert_vec(&mut self, other: &Self, index: u64) {
+		if index > self.len() {
+			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
+		}
+		// determine insertion point
+		let insertion_word_index = index / 32;
+		let start_insertion_bit_index = (index % 32) as u8;
+		let end_insertion_bit_index = start_insertion_bit_index + (other.len() % 32) as u8;
+
+		// prepare self
+		
+	}
+
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
 	#[inline]
 	fn insert_in_word(word: &mut u32, bit_index: u8, bit: bool) {
@@ -156,6 +173,29 @@ impl DBVec {
 			} else {
 				false
 			}
+		}
+	}
+
+	// Shifts everything nr_bits towards the end of the vector.
+	// This means nr_bits leading zero's are introduced.
+	// Overflowing bits are put into a new word at the end of the vector.
+	pub fn align(&mut self, nr_bits: u8) {
+		let overflowing_bits = (MAX >> nr_bits) ^ MAX;
+		println!("overflowing_bits: {:032b}", overflowing_bits);
+
+		// check on next word needed? self.len_rem + nr_bits > 32 ???
+		self.len_rem += nr_bits;
+		if self.len_rem >= 32 {
+			self.words.push(0u32);
+			self.len_rem = self.len_rem % 32;
+		}
+
+		// now do the trick. rotate each word to left, put the 'overflow' into the next word
+		let mut overflow = 0u32;
+		for word in self.words.iter_mut() {
+			let new_overflow = (*word & overflowing_bits) >> (32 - nr_bits);
+			*word = (*word << nr_bits) | overflow;
+			overflow = new_overflow;
 		}
 	}
 
@@ -242,6 +282,7 @@ use std::u16::MAX;
 		assert!(vec1 != vec2);
 	}
 
+	#[test]
 	fn starts_with() {
 		// test 1: empty vecs
 		let vec1 = DBVec::new();
@@ -264,7 +305,21 @@ use std::u16::MAX;
 		// test 4: different vectors
 		let vec7 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10100000]);
 		let vec8 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
-		assert!(vec8.starts_with(&vec7));
+		assert!(!vec8.starts_with(&vec7));
 		assert!(!vec7.starts_with(&vec8));
+	}
+
+	#[test]
+	fn align() {
+		let mut vec = DBVec::new();
+		vec.push(true);
+		vec.push(true);
+		println!("{:?}", vec);
+		vec.align(5);
+		println!("{:?}", vec);
+		vec.align(20);
+		println!("{:?}", vec);
+		vec.align(6);
+		println!("{:?}", vec);
 	}
 }
