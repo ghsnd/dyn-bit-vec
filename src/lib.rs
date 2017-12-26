@@ -57,7 +57,13 @@ impl DBVec {
 		// FIXME: error when initialised from slice
 		match self.words.len() {
 			0 => self.len_rem as u64,
-			_ => ((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
+			_ => {
+					if self.len_rem == 0 {
+						(self.words.len() * 32) as u64
+					} else {
+						((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
+					}
+				 }
 		}
 	}
 
@@ -163,13 +169,17 @@ impl DBVec {
 			// may be parallellized for large vectors?
 			let self_words = &self.words[..common_word_len];
 			let other_words = &other.words[..common_word_len];
-			if self.words == other.words {
+			if self_words == other_words {
 				let self_last_word = self.words.last().unwrap();
-				let other_last_word = other.words.last().unwrap();
+				let other_last_word = other.words.get(common_word_len).unwrap();
 				let bits_to_compare = (other.len() % 32) as u8;
-				let self_bits = self_last_word.get_bits(0..bits_to_compare);
-				let other_bits = other_last_word.get_bits(0..bits_to_compare);
-				self_bits == other_bits
+				if bits_to_compare > 0 {
+					let self_bits = self_last_word.get_bits(0..bits_to_compare);
+					let other_bits = other_last_word.get_bits(0..bits_to_compare);
+					self_bits == other_bits
+				} else {
+					true
+				}
 			} else {
 				false
 			}
@@ -220,18 +230,11 @@ use dyn_bit_vec::DBVec;
 use std::u16::MAX;
 
 	#[test]
-	fn it_works() {
-		assert_eq!(2 + 2, 4);
-		let int_1 = 0b01u32;
-		println!("int_1: {:032b} - {}", int_1, int_1);
-		let int_2 = int_1 << 9;
-		println!("int_1 << 9: {:032b} - {}", int_2, int_2);
-	}
-
-	#[test]
 	fn from_u32_slice() {
 		let vec = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
 		println!("{:?}", vec);
+		assert_eq!(vec.len(), 96);
+		assert_eq!(vec.pop_cnt(), 3);
 	}
 
 	#[test]
@@ -305,7 +308,7 @@ use std::u16::MAX;
 		// test 4: different vectors
 		let vec7 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10100000]);
 		let vec8 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
-		assert!(!vec8.starts_with(&vec7));
+		assert!(vec8.starts_with(&vec7));
 		assert!(!vec7.starts_with(&vec8));
 	}
 
