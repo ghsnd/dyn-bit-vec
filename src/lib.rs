@@ -186,7 +186,7 @@ impl DBVec {
 		}
 	}
 
-	// Shifts everything nr_bits towards the end of the vector.
+	// Shifts everything nr_bits (max 31 bits) towards the end of the vector.
 	// This means nr_bits leading zero's are introduced.
 	// Overflowing bits are put into a new word at the end of the vector.
 	pub fn align(&mut self, nr_bits: u8) {
@@ -195,7 +195,7 @@ impl DBVec {
 
 		// check on next word needed? self.len_rem + nr_bits > 32 ???
 		self.len_rem += nr_bits;
-		if self.len_rem >= 32 {
+		if self.len_rem > 32 {
 			self.words.push(0u32);
 			self.len_rem = self.len_rem % 32;
 		}
@@ -323,6 +323,10 @@ use std::u16::MAX;
 		vec.align(20);
 		println!("{:?}", vec);
 		vec.align(6);
+		println!("{:?}", vec);
+		vec.align(31);
+		println!("{:?}", vec);
+		vec.align(1);
 		println!("{:?}", vec);
 	}
 }
