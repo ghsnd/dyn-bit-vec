@@ -187,16 +187,15 @@ impl DBVec {
 	}
 
 	// Shifts everything nr_bits (max 31 bits) towards the end of the vector.
-	// This means nr_bits leading zero's are introduced.
+	// This means nr_bits leading zero's are introduced; the vector grows.
 	// Overflowing bits are put into a new word at the end of the vector.
-	// 0 < nr_bits < 32 !!
-	pub fn align(&mut self, nr_bits: u8) {
+	pub fn align_to_end(&mut self, nr_bits: u8) {
 		if self.len_rem == 0 {
 			self.words.push(0u32);
 		}
 		let overflowing_bits = (MAX >> nr_bits) ^ MAX;
 
-		// check on next word needed? self.len_rem + nr_bits > 32 ???
+		// check if next word needed? self.len_rem + nr_bits > 32 ???
 		self.len_rem += nr_bits;
 		if self.len_rem > 32 {
 			self.words.push(0u32);
@@ -212,6 +211,26 @@ impl DBVec {
 		}
 	}
 
+	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
+	pub fn shift_to_begin(&mut self, nr_bits: u8) {
+		let underflowing_bits = (MAX << nr_bits) ^ MAX;
+		let mut underflow = 0u32;
+		for word in self.words.iter_mut().rev() {
+			let new_underflow = (*word & underflowing_bits) << (32 - nr_bits);
+			*word = (*word >> nr_bits) | underflow;
+			underflow = new_underflow;
+		}
+
+		// check if last word can be deleted
+		if self.len_rem == 0 {
+			self.len_rem = 32;
+		}
+		if self.len_rem <= nr_bits {
+			self.len_rem = (self.len_rem + nr_bits) % 32;
+			self.words.pop();
+		}
+		self.len_rem -= nr_bits;
+	}
 }
 
 impl fmt::Debug for DBVec {
@@ -316,25 +335,42 @@ use std::u16::MAX;
 	}
 
 	#[test]
-	fn align() {
+	fn align_to_end() {
 		let mut vec = DBVec::new();
 		vec.push(true);
 		vec.push(true);
 		println!("{:?}", vec);
-		vec.align(5);
+		vec.align_to_end(5);
 		println!("{:?}", vec);
-		vec.align(20);
+		vec.align_to_end(20);
 		println!("{:?}", vec);
-		vec.align(6);
+		vec.align_to_end(6);
 		println!("{:?}", vec);
-		vec.align(31);
+		vec.align_to_end(31);
 		println!("{:?}", vec);
-		vec.align(1);
+		vec.align_to_end(1);
 		println!("{:?}", vec);
 
 		let mut vec2 = DBVec::from_u32_slice(&[1, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000]);
 		println!("{:?}", vec2);
-		vec2.align(31);
+		vec2.align_to_end(31);
+		println!("{:?}", vec2);
+	}
+
+	#[test]
+	fn shift_to_begin() {
+		let mut vec = DBVec::from_u32_slice(&[0b10000000_00000000_00000000_00001000u32]);
+		println!("{:?}", vec);
+		vec.shift_to_begin(3);
+		println!("{:?}", vec);
+		vec.shift_to_begin(1);
+		println!("{:?}", vec);
+
+		let mut vec2 = DBVec::from_u32_slice(&[1, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000]);
+		println!("{:?}", vec2);
+		vec2.shift_to_begin(31);
+		println!("{:?}", vec2);
+		vec2.shift_to_begin(1);
 		println!("{:?}", vec2);
 	}
 }
