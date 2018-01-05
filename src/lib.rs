@@ -224,9 +224,8 @@ impl DBVec {
 		// check if last word can be deleted
 		if self.len_rem == 0 {
 			self.len_rem = 32;
-		}
-		if self.len_rem <= nr_bits {
-			self.len_rem = (self.len_rem + nr_bits) % 32;
+		}else if self.len_rem <= nr_bits {
+			self.len_rem += 32;
 			self.words.pop();
 		}
 		self.len_rem -= nr_bits;
@@ -372,5 +371,14 @@ use std::u16::MAX;
 		println!("{:?}", vec2);
 		vec2.shift_to_begin(1);
 		println!("{:?}", vec2);
+	}
+
+	#[test]
+	fn align_and_shift() {
+		let mut vec = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		let vec_result = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
+		vec.align_to_end(25);
+		vec.shift_to_begin(25);
+		assert_eq!(vec, vec_result);
 	}
 }
