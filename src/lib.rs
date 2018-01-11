@@ -101,7 +101,7 @@ impl DBVec {
 			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
 		}
 		self.inc_len();
-		let bit_index = (index % 32) as u8;
+		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 
 		let mut last_bit = false;
@@ -124,7 +124,7 @@ impl DBVec {
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
-		let bit_index = (self.len() % 32) as u8;
+		let bit_index = (self.len() % 32) as usize;
 		self.inc_len();
 		if bit {
 			let word_index = (self.len() / 32) as usize;
@@ -149,7 +149,7 @@ impl DBVec {
 
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
 	#[inline]
-	fn insert_in_word(word: &mut u32, bit_index: u8, bit: bool) {
+	fn insert_in_word(word: &mut u32, bit_index: usize, bit: bool) {
 		for remaining_bit_index in (bit_index + 1..32).rev() {
 			let prev_bit = word.get_bit(remaining_bit_index - 1);
 			word.set_bit(remaining_bit_index, prev_bit);
@@ -172,7 +172,7 @@ impl DBVec {
 			if self_words == other_words {
 				let self_last_word = self.words.last().unwrap();
 				let other_last_word = other.words.get(common_word_len).unwrap();
-				let bits_to_compare = (other.len() % 32) as u8;
+				let bits_to_compare = (other.len() % 32) as usize;
 				if bits_to_compare > 0 {
 					let self_bits = self_last_word.get_bits(0..bits_to_compare);
 					let other_bits = other_last_word.get_bits(0..bits_to_compare);
@@ -229,6 +229,34 @@ impl DBVec {
 			self.words.pop();
 		}
 		self.len_rem -= nr_bits;
+	}
+
+	pub fn split_off(&mut self, at: u64) -> Self {
+		println!("Input: {:?}", self);
+		// just split the words vector
+		let at_word = at / 32;
+		let mut other_words = self.words.split_off(at_word as usize);
+		println!("Other_words: {:?}", other_words);
+		println!("Input: {:?}", self);
+
+		// put the first relevant bits of other_words at the end of self.words
+		let start_insertion_bit_index = (at % 32) as u8;
+		let other_bit_mask = MAX << start_insertion_bit_index;
+		println!("Other bitmask:        {:032b}", other_bit_mask);
+		let self_bit_mask = other_bit_mask ^ MAX;
+		println!("Self bitmask :        {:032b}", self_bit_mask);
+		if let Some(first_of_other) = other_words.first_mut() {
+			let last_of_self = *first_of_other & self_bit_mask;
+			println!("last_of_self:         {:032b}", last_of_self);
+			*first_of_other = *first_of_other & other_bit_mask;
+			println!("first_of_other:       {:032b}", *first_of_other);
+			self.words.push(last_of_self);
+		}
+		println!("Input: {:?}", self);
+		DBVec {
+			words: other_words,
+			len_rem: 0 // TODO
+		}
 	}
 }
 
@@ -380,5 +408,12 @@ use std::u16::MAX;
 		vec.align_to_end(25);
 		vec.shift_to_begin(25);
 		assert_eq!(vec, vec_result);
+	}
+
+	#[test]
+	fn split_off() {
+		let mut vec = DBVec::from_u32_slice(&[0b00000000_10000000_00000000_00001000u32]);
+		let vec2 = vec.split_off(4);
+		println!("{:?}", vec2);
 	}
 }
