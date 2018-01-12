@@ -231,11 +231,13 @@ impl DBVec {
 		self.len_rem -= nr_bits;
 	}
 
-	pub fn split_off(&mut self, at: u64) -> Self {
+	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
+	pub fn split(&mut self, at: u64) -> Self {
 		println!("Input: {:?}", self);
 		// just split the words vector
 		let at_word = at / 32;
 		let mut other_words = self.words.split_off(at_word as usize);
+		self.words.shrink_to_fit();
 		println!("Other_words: {:?}", other_words);
 		println!("Input: {:?}", self);
 
@@ -255,7 +257,7 @@ impl DBVec {
 		println!("Input: {:?}", self);
 		DBVec {
 			words: other_words,
-			len_rem: 0 // TODO
+			len_rem: 0
 		}
 	}
 }
@@ -412,7 +414,7 @@ use std::u16::MAX;
 
 	#[test]
 	fn split_off() {
-		let mut vec = DBVec::from_u32_slice(&[0b00000000_10000000_00000000_00001000u32]);
+		let mut vec = DBVec::from_u32_slice(&[0b10000000_10000000_00000000_00001000u32]);
 		let vec2 = vec.split_off(4);
 		println!("{:?}", vec2);
 	}
