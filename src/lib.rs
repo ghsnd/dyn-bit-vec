@@ -139,11 +139,12 @@ impl DBVec {
 		if index > self_len {
 			panic!("Index out of bound: index = {} while the length is {}", index, self_len);
 		}
-		let other_len = other.len();
+
+		let new_len_rem = (self.len_rem + other.len_rem) % 32;
+
 		// determine insertion point
-		let insertion_word_index = index / 32;
 		let start_insertion_bit_index = (index % 32) as u8;
-		let end_insertion_bit_index = start_insertion_bit_index + (other_len % 32) as u8;
+		let end_insertion_bit_index = start_insertion_bit_index + other.len_rem;
 
 		let mut self_tail_vec = self.split(index);
 		other.align_to_end(start_insertion_bit_index);
@@ -176,6 +177,7 @@ impl DBVec {
 		//merge vectors
 		self.words.append(&mut other.words);
 		self.words.append(&mut self_tail_vec.words);
+		self.len_rem = new_len_rem;
 	}
 
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
@@ -309,7 +311,6 @@ impl fmt::Debug for DBVec {
 mod tests {
 
 use dyn_bit_vec::DBVec;
-use std::u16::MAX;
 
 	#[test]
 	fn from_u32_slice() {
