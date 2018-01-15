@@ -134,17 +134,48 @@ impl DBVec {
 		}
 	}
 
-	pub fn insert_vec(&mut self, other: &Self, index: u64) {
-		if index > self.len() {
-			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
+	pub fn insert_vec(&mut self, other: &mut Self, index: u64) {
+		let self_len = self.len();
+		if index > self_len {
+			panic!("Index out of bound: index = {} while the length is {}", index, self_len);
 		}
+		let other_len = other.len();
 		// determine insertion point
 		let insertion_word_index = index / 32;
 		let start_insertion_bit_index = (index % 32) as u8;
-		let end_insertion_bit_index = start_insertion_bit_index + (other.len() % 32) as u8;
+		let end_insertion_bit_index = start_insertion_bit_index + (other_len % 32) as u8;
 
-		// prepare self
-		
+		let mut self_tail_vec = self.split(index);
+		other.align_to_end(start_insertion_bit_index);
+		if start_insertion_bit_index < end_insertion_bit_index {
+			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
+			self_tail_vec.align_to_end(shift_amount);
+		} else {
+			let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
+			self_tail_vec.shift_to_begin(shift_amount);
+		}
+		//let mut other_iter = other.words.iter_mut();
+
+		// 'merge' last word of first part of self with first word of other
+		if let Some(last_of_first_part) = self.words.last() {
+			if let Some(first_other) = other.words.first_mut() {
+				*first_other = *last_of_first_part | *first_other;
+			}
+		}
+		self.words.pop();
+
+		// 'merge' last word of other with first word of last part of self_tail_vec
+		//let mut tail_iter = self_tail_vec.words.iter_mut();
+		if let Some(last_of_other) = other.words.last() {
+			if let Some(first_tail) = self_tail_vec.words.first_mut() {
+				*first_tail = *last_of_other | *first_tail;
+			}
+		}
+		other.words.pop();
+
+		//merge vectors
+		self.words.append(&mut other.words);
+		self.words.append(&mut self_tail_vec.words);
 	}
 
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
@@ -413,9 +444,20 @@ use std::u16::MAX;
 	}
 
 	#[test]
-	fn split_off() {
+	fn split() {
 		let mut vec = DBVec::from_u32_slice(&[0b10000000_10000000_00000000_00001000u32]);
-		let vec2 = vec.split_off(4);
+		let vec2 = vec.split(4);
 		println!("{:?}", vec2);
+	}
+
+	#[test]
+	fn insert_vec() {
+		let mut vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
+		let mut vec2 = DBVec::from_bytes(&[0b01111110]);
+		println!("vec1: {:?}", vec1);
+		println!("vec2: {:?}", vec2);
+		vec1.insert_vec(&mut vec2, 4);
+		println!("vec1: {:?}", vec1);
+		println!("vec2: {:?}", vec2);
 	}
 }
