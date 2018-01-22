@@ -53,6 +53,10 @@ impl DBVec {
 		}
 	}
 
+	pub fn words(&self) -> &Vec<u32> {
+		&self.words
+	}
+
 	pub fn len(&self) -> u64 {
 		// FIXME: error when initialised from slice
 		match self.words.len() {
@@ -144,14 +148,14 @@ impl DBVec {
 
 		// determine insertion point
 		let start_insertion_bit_index = (index % 32) as u8;
-		let end_insertion_bit_index = start_insertion_bit_index + other.len_rem;
+		let end_insertion_bit_index = (start_insertion_bit_index + other.len_rem) % 32;
 
 		let mut self_tail_vec = self.split(index);
 		other.align_to_end(start_insertion_bit_index);
 		if start_insertion_bit_index < end_insertion_bit_index {
 			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
 			self_tail_vec.align_to_end(shift_amount);
-		} else {
+		} else if start_insertion_bit_index > end_insertion_bit_index{
 			let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
 			self_tail_vec.shift_to_begin(shift_amount);
 		}
@@ -246,6 +250,7 @@ impl DBVec {
 
 	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
 	pub fn shift_to_begin(&mut self, nr_bits: u8) {
+		println!(">> nr_bits: {}", nr_bits);
 		let underflowing_bits = (MAX << nr_bits) ^ MAX;
 		let mut underflow = 0u32;
 		for word in self.words.iter_mut().rev() {
@@ -455,10 +460,15 @@ use dyn_bit_vec::DBVec;
 	fn insert_vec() {
 		let mut vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
 		let mut vec2 = DBVec::from_bytes(&[0b01111110]);
-		println!("vec1: {:?}", vec1);
-		println!("vec2: {:?}", vec2);
+		//println!("vec1: {:?}", vec1);
+		//println!("vec2: {:?}", vec2);
 		vec1.insert_vec(&mut vec2, 4);
 		println!("vec1: {:?}", vec1);
-		println!("vec2: {:?}", vec2);
+		//println!("vec2: {:?}", vec2);
+		assert_eq!(vec1.words(), &[0b11111111111111111111011111101111, 0b00000000000000000000000011111111]);
+		let mut vec3 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256]);
+		println!("vec3: {:?}", vec3);
+		vec1.insert_vec(&mut vec3, 34);
+		println!("vec1: {:?}", vec1);
 	}
 }
