@@ -250,7 +250,7 @@ impl DBVec {
 
 	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
 	pub fn shift_to_begin(&mut self, nr_bits: u8) {
-		println!(">> nr_bits: {}", nr_bits);
+		//println!(">> nr_bits: {}", nr_bits);
 		let underflowing_bits = (MAX << nr_bits) ^ MAX;
 		let mut underflow = 0u32;
 		for word in self.words.iter_mut().rev() {
@@ -271,28 +271,28 @@ impl DBVec {
 
 	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
 	pub fn split(&mut self, at: u64) -> Self {
-		println!("Input: {:?}", self);
+		//println!("Input: {:?}", self);
 		// just split the words vector
 		let at_word = at / 32;
 		let mut other_words = self.words.split_off(at_word as usize);
 		self.words.shrink_to_fit();
-		println!("Other_words: {:?}", other_words);
-		println!("Input: {:?}", self);
+		//println!("Other_words: {:?}", other_words);
+		//println!("Input: {:?}", self);
 
 		// put the first relevant bits of other_words at the end of self.words
 		let start_insertion_bit_index = (at % 32) as u8;
 		let other_bit_mask = MAX << start_insertion_bit_index;
-		println!("Other bitmask:        {:032b}", other_bit_mask);
+		//println!("Other bitmask:        {:032b}", other_bit_mask);
 		let self_bit_mask = other_bit_mask ^ MAX;
-		println!("Self bitmask :        {:032b}", self_bit_mask);
+		//println!("Self bitmask :        {:032b}", self_bit_mask);
 		if let Some(first_of_other) = other_words.first_mut() {
 			let last_of_self = *first_of_other & self_bit_mask;
-			println!("last_of_self:         {:032b}", last_of_self);
+			//println!("last_of_self:         {:032b}", last_of_self);
 			*first_of_other = *first_of_other & other_bit_mask;
-			println!("first_of_other:       {:032b}", *first_of_other);
+			//println!("first_of_other:       {:032b}", *first_of_other);
 			self.words.push(last_of_self);
 		}
-		println!("Input: {:?}", self);
+		//println!("Input: {:?}", self);
 		DBVec {
 			words: other_words,
 			len_rem: 0
@@ -303,8 +303,14 @@ impl DBVec {
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "DBVec: ({}, {}, ", self.len(), self.pop_cnt());
+		let mut count = 0u8;
 		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
+			count += 1;
+			if count == 100 {
+				count = 1;
+				write!(f, "\n");
+			}
 		}
 		write!(f, ")")
 	}
