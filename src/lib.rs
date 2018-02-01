@@ -15,6 +15,9 @@ pub struct DBVec {
 }
 
 impl DBVec {
+
+	///// constructors /////
+
 	pub fn new() -> Self {
 		DBVec {
 			words: Vec::new(),
@@ -52,6 +55,20 @@ impl DBVec {
 			len_rem: ((bytes.len() * 8) % 32) as u8,
 		}
 	}
+
+	pub fn from_elem(nbits: usize, bit: bool) -> Self {
+		let elem = match bit {
+			false => 0,
+			true  => MAX
+		};
+		let len = nbits / 32 + 1;
+		DBVec {
+			words: vec![elem; len],
+			len_rem: (nbits % 32) as u8
+		}
+	}
+
+	////////////////////////
 
 	pub fn words(&self) -> &Vec<u32> {
 		&self.words
@@ -329,6 +346,15 @@ use dyn_bit_vec::DBVec;
 		println!("{:?}", vec);
 		assert_eq!(vec.len(), 96);
 		assert_eq!(vec.pop_cnt(), 3);
+	}
+
+	#[test]
+	fn from_elem() {
+		let mut vec1 = DBVec::from_elem(35, false);
+		let mut vec2 = DBVec::from_elem(35, true);
+		vec2.insert_vec(&mut vec1, 30);
+		println!("{:?}", vec2);
+		// TODO wrong!!
 	}
 
 	#[test]
