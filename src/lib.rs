@@ -62,9 +62,14 @@ impl DBVec {
 			true  => MAX
 		};
 		let len = nbits / 32 + 1;
+		let rem = nbits % 32;
+		let mut word_vec = vec![elem; len];
+		if let Some(last_word) = word_vec.last_mut() {
+			*last_word = *last_word >> (32 - rem);
+		}
 		DBVec {
-			words: vec![elem; len],
-			len_rem: (nbits % 32) as u8
+			words: word_vec,
+			len_rem: rem as u8
 		}
 	}
 
@@ -168,7 +173,12 @@ impl DBVec {
 		let end_insertion_bit_index = (start_insertion_bit_index + other.len_rem) % 32;
 
 		let mut self_tail_vec = self.split(index);
+		println!("*** Split: ");
+		println!("self:      {:?}", self);
+		println!("self_tail: {:?}", self_tail_vec);
 		other.align_to_end(start_insertion_bit_index);
+		println!("*** Other after align");
+		println!("other:     {:?}", self);
 		if start_insertion_bit_index < end_insertion_bit_index {
 			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
 			self_tail_vec.align_to_end(shift_amount);
@@ -176,6 +186,8 @@ impl DBVec {
 			let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
 			self_tail_vec.shift_to_begin(shift_amount);
 		}
+		println!("*** self_tail after align: ");
+		println!("self_tail: {:?}", self_tail_vec);
 		//let mut other_iter = other.words.iter_mut();
 
 		// 'merge' last word of first part of self with first word of other
@@ -288,13 +300,14 @@ impl DBVec {
 
 	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
 	pub fn split(&mut self, at: u64) -> Self {
-		//println!("Input: {:?}", self);
+		println!("Input: {:?}", self);
 		// just split the words vector
 		let at_word = at / 32;
+		println!("at_word: {}", at_word);
 		let mut other_words = self.words.split_off(at_word as usize);
 		self.words.shrink_to_fit();
-		//println!("Other_words: {:?}", other_words);
-		//println!("Input: {:?}", self);
+		println!("Other_words: {:?}", other_words);
+		println!("Input: {:?}", self);
 
 		// put the first relevant bits of other_words at the end of self.words
 		let start_insertion_bit_index = (at % 32) as u8;
@@ -351,7 +364,9 @@ use dyn_bit_vec::DBVec;
 	#[test]
 	fn from_elem() {
 		let mut vec1 = DBVec::from_elem(35, false);
+		println!("{:?}", vec1);
 		let mut vec2 = DBVec::from_elem(35, true);
+		println!("{:?}", vec2);
 		vec2.insert_vec(&mut vec1, 30);
 		println!("{:?}", vec2);
 		// TODO wrong!!
@@ -483,8 +498,8 @@ use dyn_bit_vec::DBVec;
 
 	#[test]
 	fn split() {
-		let mut vec = DBVec::from_u32_slice(&[0b10000000_10000000_00000000_00001000u32]);
-		let vec2 = vec.split(4);
+		let mut vec = DBVec::from_elem(35, true);
+		let vec2 = vec.split(30);
 		println!("{:?}", vec2);
 	}
 
