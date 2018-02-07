@@ -179,6 +179,8 @@ impl DBVec {
 		other.align_to_end(start_insertion_bit_index);
 		println!("*** Other after align");
 		println!("other:     {:?}", self);
+		// TODO: if align crosses word boundary, take off word.
+		// TODO: calculate lengths properly?
 		if start_insertion_bit_index < end_insertion_bit_index {
 			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
 			self_tail_vec.align_to_end(shift_amount);
@@ -312,17 +314,17 @@ impl DBVec {
 		// put the first relevant bits of other_words at the end of self.words
 		let start_insertion_bit_index = (at % 32) as u8;
 		let other_bit_mask = MAX << start_insertion_bit_index;
-		//println!("Other bitmask:        {:032b}", other_bit_mask);
+		println!("Other bitmask:        {:032b}", other_bit_mask);
 		let self_bit_mask = other_bit_mask ^ MAX;
-		//println!("Self bitmask :        {:032b}", self_bit_mask);
+		println!("Self bitmask :        {:032b}", self_bit_mask);
 		if let Some(first_of_other) = other_words.first_mut() {
 			let last_of_self = *first_of_other & self_bit_mask;
-			//println!("last_of_self:         {:032b}", last_of_self);
+			println!("last_of_self:         {:032b}", last_of_self);
 			*first_of_other = *first_of_other & other_bit_mask;
-			//println!("first_of_other:       {:032b}", *first_of_other);
+			println!("first_of_other:       {:032b}", *first_of_other);
 			self.words.push(last_of_self);
 		}
-		//println!("Input: {:?}", self);
+		println!("Self: {:?}", self);
 		DBVec {
 			words: other_words,
 			len_rem: 0
