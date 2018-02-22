@@ -166,6 +166,8 @@ impl DBVec {
 			panic!("Index out of bound: index = {} while the length is {}", index, self_len);
 		}
 
+		println!("self:      {:?}", self);
+
 		let new_len_rem = (self.len_rem + other.len_rem) % 32;
 
 		// determine insertion point
@@ -178,15 +180,18 @@ impl DBVec {
 		println!("self_tail: {:?}", self_tail_vec);
 		other.align_to_end(start_insertion_bit_index);
 		println!("*** Other after align");
-		println!("other:     {:?}", self);
+		println!("other:     {:?}", other);
 		// TODO: if align crosses word boundary, take off word.
 		// TODO: calculate lengths properly?
 		if start_insertion_bit_index < end_insertion_bit_index {
 			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
 			self_tail_vec.align_to_end(shift_amount);
+			println!(" --- align to end: {}", shift_amount);
 		} else if start_insertion_bit_index > end_insertion_bit_index{
 			let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
 			self_tail_vec.shift_to_begin(shift_amount);
+			self_tail_vec.words.pop();
+			println!(" --- shift to begin: {}", shift_amount);
 		}
 		println!("*** self_tail after align: ");
 		println!("self_tail: {:?}", self_tail_vec);
@@ -371,7 +376,9 @@ use dyn_bit_vec::DBVec;
 		println!("{:?}", vec2);
 		vec2.insert_vec(&mut vec1, 30);
 		println!("{:?}", vec2);
-		// TODO wrong!!
+		assert_eq!(vec2.len(), 70);
+		let result_vec: Vec<u32> = vec![0b00111111111111111111111111111111, 0b00000000000000000000000000000000, 0b00000000000000000000000000111110];
+		assert_eq!(vec2.words(), &result_vec);
 	}
 
 	#[test]
