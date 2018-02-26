@@ -8,7 +8,7 @@ use self::bit_field::BitField;
 use self::rayon::prelude::*;
 use std::u32::MAX;
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct DBVec {
 	words: Vec<u32>,
 	len_rem: u8,	// length = (words.length - 1) * 32 + len_rem
@@ -310,6 +310,44 @@ impl DBVec {
 			len_rem: 0
 		}
 	}
+
+	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
+		//if self == other {
+		//	self.clone()
+		//} else {
+			let mut common_words: Vec<u32> = Vec::new();
+			let zipped_iter = self.words.iter().zip(other.words.iter());
+			for word_pair in zipped_iter {
+				if word_pair.0 == word_pair.1 {
+					common_words.push(*word_pair.0);
+				} else {
+					// TODO check word per bit, take into account len_rem
+					/*let smallest_len = match self.len_rem < other.len_rem { // isn't there an elegant construction for this?
+						true => self.len_rem,
+						false => other.len_rem
+					};*/
+					let mut result: u32 = 0;
+					for bit_nr in 0..32 {
+						let bit = word_pair.0.get_bit(bit_nr);
+						if bit == word_pair.1.get_bit(bit_nr) {
+							result.set_bit(bit_nr, bit);
+						} else {
+							break;
+						}
+					}
+					common_words.push(result);
+					//let mut mask: u32 = (1u32 << self.len_rem) - 1;
+					//let 
+					break;
+				}
+			}
+			DBVec {
+				words: common_words,
+				len_rem: 0
+			}
+		//}
+	}
+
 }
 
 impl fmt::Debug for DBVec {
