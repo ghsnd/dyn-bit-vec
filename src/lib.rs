@@ -310,40 +310,35 @@ impl DBVec {
 	}
 
 	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
-		//if self == other {
-		//	self.clone()
-		//} else {
-			let mut common_words: Vec<u32> = Vec::new();
-			let zipped_iter = self.words.iter().zip(other.words.iter());
-			for word_pair in zipped_iter {
-				if word_pair.0 == word_pair.1 {
-					common_words.push(*word_pair.0);
-				} else {
-					// TODO check word per bit, take into account len_rem
-					/*let smallest_len = match self.len_rem < other.len_rem { // isn't there an elegant construction for this?
-						true => self.len_rem,
-						false => other.len_rem
-					};*/
-					let mut result: u32 = 0;
-					for bit_nr in 0..32 {
-						let bit = word_pair.0.get_bit(bit_nr);
-						if bit == word_pair.1.get_bit(bit_nr) {
-							result.set_bit(bit_nr, bit);
-						} else {
-							break;
-						}
+		let mut common_words: Vec<u32> = Vec::new();
+		let zipped_iter = self.words.iter().zip(other.words.iter());
+		let mut len_rem = 0;
+		for word_pair in zipped_iter {
+			if word_pair.0 == word_pair.1 {
+				common_words.push(*word_pair.0);
+			} else {
+				let mut result: u32 = 0;
+				let mut do_push = false;
+				for bit_nr in 0..32 {
+					let bit = word_pair.0.get_bit(bit_nr);
+					if bit == word_pair.1.get_bit(bit_nr) {
+						result.set_bit(bit_nr, bit);
+						len_rem = bit_nr;
+						do_push = true;
+					} else {
+						break;
 					}
-					common_words.push(result);
-					//let mut mask: u32 = (1u32 << self.len_rem) - 1;
-					//let 
-					break;
 				}
+				if do_push {
+					common_words.push(result);
+				}
+				break;
 			}
-			DBVec {
-				words: common_words,
-				len_rem: 0
-			}
-		//}
+		}
+		DBVec {
+			words: common_words,
+			len_rem: 0
+		}
 	}
 
 }
@@ -541,5 +536,26 @@ use DBVec;
 			0b00000000000000000000010000000000, 0b00000000000000000000010000000000,
 			0b00000000000000000000010000000000, 0b00000000000000000000010000000000,
 			0b00000000000000000000000011111100]);
+	}
+
+	#[test]
+	fn longest_common_prefix() {
+		// simple one-word vectors
+		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
+		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111011_11111111u32]);
+		let exp  = DBVec::from_u32_slice(                        &[0b11_11111111u32]);
+		let result = vec1.longest_common_prefix(&vec2);
+		assert_eq!(exp, result);
+
+		// schould be long_vec_1
+		let long_vec1 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256]);
+		let long_vec2 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256, 257, 256, 256]);
+		let result_2 = long_vec1.longest_common_prefix(&long_vec2);
+		assert_eq!(long_vec1, result_2);
+		let result_3 = long_vec2.longest_common_prefix(&long_vec1);
+		assert_eq!(long_vec1, result_3);
+		let long_vec3 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]);
+		let result_4 = long_vec2.longest_common_prefix(&long_vec3);
+		assert_eq!(long_vec1, result_4);
 	}
 }
