@@ -1,5 +1,3 @@
-pub mod dyn_bit_vec {
-
 extern crate bit_field;
 extern crate rayon;
 use std::vec::Vec;
@@ -366,12 +364,10 @@ impl fmt::Debug for DBVec {
 	}
 }
 
-}
-
 #[cfg(test)]
 mod tests {
 
-use dyn_bit_vec::DBVec;
+use DBVec;
 
 	#[test]
 	fn from_u32_slice() {
