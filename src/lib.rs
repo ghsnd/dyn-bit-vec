@@ -62,8 +62,12 @@ impl DBVec {
 		let len = nbits / 32 + 1;
 		let rem = nbits % 32;
 		let mut word_vec = vec![elem; len];
-		if let Some(last_word) = word_vec.last_mut() {
-			*last_word = *last_word >> (32 - rem);
+		if rem > 0 {
+			if let Some(last_word) = word_vec.last_mut() {
+				*last_word = *last_word >> (32 - rem);
+			}
+		} else {
+			word_vec.pop();
 		}
 		DBVec {
 			words: word_vec,
@@ -119,10 +123,24 @@ impl DBVec {
 			.sum()
 	}
 
+	// get the value of the bit at position 'index'
+	pub fn get(&self, index: u64) -> bool {
+		if index >= self.len() {
+			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
+		}
+		let bit_index = (index % 32) as usize;
+		let word_index = (index / 32) as usize;
+		if let Some(word) = self.words.get(word_index) {
+			word.get_bit(bit_index)
+		} else {
+			panic!("Should not occur!");
+		}
+	}
+
 	// insert a bit at position 'index'
 	pub fn insert(&mut self, bit: bool, index: u64) {
 		if index > self.len() {
-			panic!("Index out of bound: index = {} while the length is {}", index, self.len());
+			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
 		self.inc_len();
 		let bit_index = (index % 32) as usize;
@@ -269,22 +287,24 @@ impl DBVec {
 
 	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
 	pub fn shift_to_begin(&mut self, nr_bits: u8) {
-		let underflowing_bits = (MAX << nr_bits) ^ MAX;
-		let mut underflow = 0u32;
-		for word in self.words.iter_mut().rev() {
-			let new_underflow = (*word & underflowing_bits) << (32 - nr_bits);
-			*word = (*word >> nr_bits) | underflow;
-			underflow = new_underflow;
-		}
+		if nr_bits > 0 {
+			let underflowing_bits = (MAX << nr_bits) ^ MAX;
+			let mut underflow = 0u32;
+			for word in self.words.iter_mut().rev() {
+				let new_underflow = (*word & underflowing_bits) << (32 - nr_bits);
+				*word = (*word >> nr_bits) | underflow;
+				underflow = new_underflow;
+			}
 
-		// check if last word can be deleted
-		if self.len_rem == 0 {
-			self.len_rem = 32;
-		}else if self.len_rem <= nr_bits {
-			self.len_rem += 32;
-			self.words.pop();
+			// check if last word can be deleted
+			if self.len_rem == 0 {
+				self.len_rem = 32;
+			}else if self.len_rem <= nr_bits {
+				self.len_rem += 32;
+				self.words.pop();
+			}
+			self.len_rem -= nr_bits;
 		}
-		self.len_rem -= nr_bits;
 	}
 
 	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
@@ -309,6 +329,7 @@ impl DBVec {
 		}
 	}
 
+	// returns the longest common prefix of self and the other
 	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
 		let mut common_words: Vec<u32> = Vec::new();
 		let zipped_iter = self.words.iter().zip(other.words.iter());
@@ -339,6 +360,17 @@ impl DBVec {
 			words: common_words,
 			len_rem: 0
 		}
+	}
+
+	pub fn different_suffix(&mut self, at: u64) -> bool {
+		let first_bit = self.get(at);
+		let new_at = at + 1;
+		let at_word = (new_at / 32) as usize;
+		let at_bit = (new_at % 32) as u8;
+		println!("  at_bit: {}", at_bit);
+		self.words = self.words[at_word..].to_vec();
+		self.shift_to_begin(at_bit);
+		true
 	}
 
 }
@@ -382,6 +414,9 @@ use DBVec;
 		println!("{:?}", vec2);
 		assert_eq!(vec2.len(), 70);
 		assert_eq!(vec2.words(), &[0b00111111111111111111111111111111, 0b00000000000000000000000000000000, 0b00000000000000000000000000111110]);
+
+		let vec_test = DBVec::from_elem(32, true);
+		assert_eq!(DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]), vec_test);
 	}
 
 	#[test]
@@ -557,5 +592,18 @@ use DBVec;
 		let long_vec3 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]);
 		let result_4 = long_vec2.longest_common_prefix(&long_vec3);
 		assert_eq!(long_vec1, result_4);
+	}
+
+	#[test]
+	fn different_suffix() {
+		let mut vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		let bit = vec1.different_suffix(30);
+		println!("vec1: {:?}", vec1);
+		assert_eq!(vec1, DBVec::from_elem(33, true));
+
+		let mut vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		let bit = vec2.different_suffix(31);
+		println!("vec2: {:?}", vec2);
+		assert_eq!(vec2, DBVec::from_elem(32, true));
 	}
 }
