@@ -362,15 +362,16 @@ impl DBVec {
 		}
 	}
 
-	pub fn different_suffix(&mut self, at: u64) -> bool {
+	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
 		let first_bit = self.get(at);
 		let new_at = at + 1;
 		let at_word = (new_at / 32) as usize;
 		let at_bit = (new_at % 32) as u8;
 		println!("  at_bit: {}", at_bit);
-		self.words = self.words[at_word..].to_vec();
-		self.shift_to_begin(at_bit);
-		true
+		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
+		result_vec.shift_to_begin(at_bit);
+		result_vec.len_rem = ((self.len() - new_at) % 32) as u8;
+		(first_bit, result_vec)
 	}
 
 }
@@ -596,14 +597,14 @@ use DBVec;
 
 	#[test]
 	fn different_suffix() {
-		let mut vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
-		let bit = vec1.different_suffix(30);
-		println!("vec1: {:?}", vec1);
-		assert_eq!(vec1, DBVec::from_elem(33, true));
+		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		let (bit, suffix1) = vec1.different_suffix(30);
+		println!("suffix1: {:?}", suffix1);
+		assert_eq!(suffix1, DBVec::from_elem(33, true));
 
-		let mut vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
-		let bit = vec2.different_suffix(31);
-		println!("vec2: {:?}", vec2);
-		assert_eq!(vec2, DBVec::from_elem(32, true));
+		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		let (bit2, suffix2) = vec2.different_suffix(31);
+		println!("suffix2: {:?}", suffix2);
+		assert_eq!(suffix2, DBVec::from_elem(32, true));
 	}
 }
