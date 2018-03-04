@@ -82,7 +82,6 @@ impl DBVec {
 	}
 
 	pub fn len(&self) -> u64 {
-		// FIXME: error when initialised from slice
 		match self.words.len() {
 			0 => self.len_rem as u64,
 			_ => {
