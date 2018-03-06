@@ -108,20 +108,20 @@ impl DBVec {
 		self.len() == 0
 	}
 
-	pub fn pop_cnt(&self, index: u64) -> u64 {
-		//if self.words.len() < 1000000 {
-			self.pop_cnt_words(index)
-		/*} else { // TODO
-			self.pop_cnt_words_parallel()
-		}*/
-	}
-
 	// count ones *before* index.
-	pub fn pop_cnt_words(&self, index: u64) -> u64 {
+	pub fn pop_cnt(&self, index: u64) -> u64 {
 		// count ones in all words but last
 		let words_index = (index / 32) as usize;
 		let words_part = &self.words[..words_index];
-		let mut nr_bits = words_part.iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+		let mut nr_bits = match (index > 32000000) {
+			false => words_part
+						.iter()
+						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64),
+			true  => words_part
+						.par_iter()
+						.map(|word| word.count_ones() as u64)
+						.sum()
+		};
 
 		// count ones until index in last word
 		let bit_index = (index % 32) as usize;
@@ -133,12 +133,6 @@ impl DBVec {
 			}
 		}
 		nr_bits
-	}
-
-	pub fn pop_cnt_words_parallel(&self) -> u64 {
-		self.words.par_iter()
-			.map(|word| word.count_ones() as u64)
-			.sum()
 	}
 
 	// get the value of the bit at position 'index'
@@ -630,8 +624,8 @@ use DBVec;
 	}
 
 	#[test]
-	fn pop_cnt_words() {
+	fn pop_cnt() {
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
-		assert_eq!(21, vec1.pop_cnt_words(21));
+		assert_eq!(21, vec1.pop_cnt(21));
 	}
 }
