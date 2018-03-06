@@ -104,16 +104,35 @@ impl DBVec {
 		}
 	}
 
-	pub fn pop_cnt(&self) -> u64 {
-		if self.words.len() < 1000000 {
-			self.pop_cnt_words()
-		} else {
-			self.pop_cnt_words_parallel()
-		}
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
 	}
 
-	pub fn pop_cnt_words(&self) -> u64 {
-		self.words.iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64)
+	pub fn pop_cnt(&self, index: u64) -> u64 {
+		//if self.words.len() < 1000000 {
+			self.pop_cnt_words(index)
+		/*} else { // TODO
+			self.pop_cnt_words_parallel()
+		}*/
+	}
+
+	// count ones *before* index.
+	pub fn pop_cnt_words(&self, index: u64) -> u64 {
+		// count ones in all words but last
+		let words_index = (index / 32) as usize;
+		let words_part = &self.words[..words_index];
+		let mut nr_bits = words_part.iter().fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+
+		// count ones until index in last word
+		let bit_index = (index % 32) as usize;
+		if bit_index != 0 {
+			if let &Some (last_word) = &self.words.last() {
+				let mask = !(MAX << bit_index);
+				let relevant_bits = mask & last_word;
+				nr_bits += relevant_bits.count_ones() as u64;
+			}
+		}
+		nr_bits
 	}
 
 	pub fn pop_cnt_words_parallel(&self) -> u64 {
@@ -377,7 +396,8 @@ impl DBVec {
 
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "DBVec: ({}, {}, ", self.len(), self.pop_cnt());
+		let len = self.len();
+		write!(f, "DBVec: ({}, {}, ", len, self.pop_cnt(len));
 		let mut count = 0u8;
 		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
@@ -400,8 +420,9 @@ use DBVec;
 	fn from_u32_slice() {
 		let vec = DBVec::from_u32_slice(&[0b1u32, 0b10u32, 0b10000000_00000000_00000000_00000000u32]);
 		println!("{:?}", vec);
-		assert_eq!(vec.len(), 96);
-		assert_eq!(vec.pop_cnt(), 3);
+		let len = vec.len();
+		assert_eq!(len, 96);
+		assert_eq!(vec.pop_cnt(len), 3);
 	}
 
 	#[test]
@@ -454,8 +475,9 @@ use DBVec;
 		//let vec = DBVec::from_bytes(&[0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000]);
 		//let vec = DBVec::from_bytes(&[0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000, 0b10000000]);
 		println!("{:?}", vec);
-		assert_eq!(48, vec.len());
-		assert_eq!(11, vec.pop_cnt());
+		let len = vec.len();
+		assert_eq!(48, len);
+		assert_eq!(11, vec.pop_cnt(len));
 	}
 
 	#[test]
@@ -605,5 +627,11 @@ use DBVec;
 		let (bit2, suffix2) = vec2.different_suffix(31);
 		println!("suffix2: {:?}", suffix2);
 		assert_eq!(suffix2, DBVec::from_elem(32, true));
+	}
+
+	#[test]
+	fn pop_cnt_words() {
+		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
+		assert_eq!(21, vec1.pop_cnt_words(21));
 	}
 }
