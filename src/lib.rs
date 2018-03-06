@@ -109,7 +109,7 @@ impl DBVec {
 	}
 
 	// count ones *before* index.
-	pub fn pop_cnt(&self, index: u64) -> u64 {
+	pub fn rank_one(&self, index: u64) -> u64 {
 		// count ones in all words but last
 		let words_index = (index / 32) as usize;
 		let words_part = &self.words[..words_index];
@@ -133,6 +133,21 @@ impl DBVec {
 			}
 		}
 		nr_bits
+	}
+
+	fn rank_zero(&self, pos: u64) -> u64 {
+		if pos == 0 {
+			pos
+		} else {
+			pos - self.rank_one(pos)
+		}
+	}
+
+	pub fn rank(&self, bit: bool, pos: u64) -> u64 {
+		match bit {
+			false => self.rank_zero(pos),
+			true => self.rank_one(pos)
+		}
 	}
 
 	// get the value of the bit at position 'index'
@@ -391,7 +406,7 @@ impl DBVec {
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let len = self.len();
-		write!(f, "DBVec: ({}, {}, ", len, self.pop_cnt(len));
+		write!(f, "DBVec: ({}, {}, ", len, self.rank_one(len));
 		let mut count = 0u8;
 		for word in self.words.iter() {
 			write!(f, "{:032b} ", word);
@@ -416,7 +431,7 @@ use DBVec;
 		println!("{:?}", vec);
 		let len = vec.len();
 		assert_eq!(len, 96);
-		assert_eq!(vec.pop_cnt(len), 3);
+		assert_eq!(vec.rank_one(len), 3);
 	}
 
 	#[test]
@@ -471,7 +486,7 @@ use DBVec;
 		println!("{:?}", vec);
 		let len = vec.len();
 		assert_eq!(48, len);
-		assert_eq!(11, vec.pop_cnt(len));
+		assert_eq!(11, vec.rank_one(len));
 	}
 
 	#[test]
@@ -624,8 +639,9 @@ use DBVec;
 	}
 
 	#[test]
-	fn pop_cnt() {
+	fn rank() {
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
-		assert_eq!(21, vec1.pop_cnt(21));
+		assert_eq!(21, vec1.rank(true, 21));
+		assert_eq!(0, vec1.rank(false, 21));
 	}
 }
