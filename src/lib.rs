@@ -6,7 +6,7 @@ use self::bit_field::BitField;
 use self::rayon::prelude::*;
 use std::u32::MAX;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DBVec {
 	words: Vec<u32>,
 	len_rem: u8,	// length = (words.length - 1) * 32 + len_rem
