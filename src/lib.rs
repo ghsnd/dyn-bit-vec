@@ -42,7 +42,6 @@ impl DBVec {
 				temp_int = 0;
 			}
 			temp_int = temp_int << 8;
-			println!("{:032b}", temp_int); 
 		}
 		if bytes.len() % 4 != 0 {
 			temp_int = temp_int >> 8;
@@ -394,7 +393,6 @@ impl DBVec {
 		let new_at = at + 1;
 		let at_word = (new_at / 32) as usize;
 		let at_bit = (new_at % 32) as u8;
-		println!("  at_bit: {}", at_bit);
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
 		result_vec.shift_to_begin(at_bit);
 		result_vec.len_rem = ((self.len() - new_at) % 32) as u8;
