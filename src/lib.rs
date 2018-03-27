@@ -358,6 +358,8 @@ impl DBVec {
 
 	// returns the longest common prefix of self and the other
 	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
+		println!("lcp: self:  {:?}", self);
+		println!("lcp: other: {:?}", other);
 		let mut common_words: Vec<u32> = Vec::new();
 		let zipped_iter = self.words.iter().zip(other.words.iter());
 		let mut len_rem = 0;
@@ -367,7 +369,7 @@ impl DBVec {
 			} else {
 				let mut result: u32 = 0;
 				let mut do_push = false;
-				for bit_nr in 0..32 {
+				for bit_nr in 0..32 { // TODO: this cannot pass the total length of one of the vectors!
 					let bit = word_pair.0.get_bit(bit_nr);
 					if bit == word_pair.1.get_bit(bit_nr) {
 						result.set_bit(bit_nr, bit);
@@ -383,10 +385,12 @@ impl DBVec {
 				break;
 			}
 		}
-		DBVec {
+		let result = DBVec {
 			words: common_words,
-			len_rem: 0
-		}
+			len_rem: len_rem as u8
+		};
+		println!("lcp: result: {:?}\n---------------", result);
+		result
 	}
 
 	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
