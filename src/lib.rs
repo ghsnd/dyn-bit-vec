@@ -5,6 +5,7 @@ use std::fmt;
 use self::bit_field::BitField;
 use self::rayon::prelude::*;
 use std::u32::MAX;
+use std::cmp;
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DBVec {
@@ -358,22 +359,29 @@ impl DBVec {
 
 	// returns the longest common prefix of self and the other
 	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
-		println!("lcp: self:  {:?}", self);
-		println!("lcp: other: {:?}", other);
+		println!("-- Self:{:?}\n-- Other: {:?}", self, other);
+		let smallest_size = cmp::min(self.len(), other.len());
+		let mut processed_size = 0;
 		let mut common_words: Vec<u32> = Vec::new();
 		let zipped_iter = self.words.iter().zip(other.words.iter());
 		let mut len_rem = 0;
 		for word_pair in zipped_iter {
-			if word_pair.0 == word_pair.1 {
+			processed_size += 32;
+			if word_pair.0 == word_pair.1 && processed_size < smallest_size {
 				common_words.push(*word_pair.0);
 			} else {
+				let nr_bits_to_check = match smallest_size % 32 {
+					0 => 32,
+					_ => (smallest_size % 32) as usize
+				};
+				println!("nr_bits_to_check: {}", nr_bits_to_check);
 				let mut result: u32 = 0;
 				let mut do_push = false;
-				for bit_nr in 0..32 { // TODO: this cannot pass the total length of one of the vectors!
+				for bit_nr in 0..nr_bits_to_check {
 					let bit = word_pair.0.get_bit(bit_nr);
 					if bit == word_pair.1.get_bit(bit_nr) {
 						result.set_bit(bit_nr, bit);
-						len_rem = bit_nr;
+						len_rem = bit_nr + 1;
 						do_push = true;
 					} else {
 						break;
@@ -385,12 +393,10 @@ impl DBVec {
 				break;
 			}
 		}
-		let result = DBVec {
+		DBVec {
 			words: common_words,
 			len_rem: len_rem as u8
-		};
-		println!("lcp: result: {:?}\n---------------", result);
-		result
+		}
 	}
 
 	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
@@ -398,7 +404,6 @@ impl DBVec {
 		let new_at = at + 1;
 		let at_word = (new_at / 32) as usize;
 		let at_bit = (new_at % 32) as u8;
-		println!("  at_bit: {}", at_bit);
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
 		result_vec.shift_to_begin(at_bit);
 		result_vec.len_rem = ((self.len() - new_at) % 32) as u8;
@@ -614,6 +619,10 @@ use DBVec;
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
 		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111011_11111111u32]);
 		let exp  = DBVec::from_u32_slice(                        &[0b11_11111111u32]);
+		let exp  = DBVec {
+			words: vec!(0b11_11111111u32),
+			len_rem: 10
+		};
 		let result = vec1.longest_common_prefix(&vec2);
 		assert_eq!(exp, result);
 
