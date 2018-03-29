@@ -43,7 +43,6 @@ impl DBVec {
 				temp_int = 0;
 			}
 			temp_int = temp_int << 8;
-			println!("{:032b}", temp_int); 
 		}
 		if bytes.len() % 4 != 0 {
 			temp_int = temp_int >> 8;
