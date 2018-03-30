@@ -54,14 +54,14 @@ impl DBVec {
 		}
 	}
 
-	pub fn from_elem(nbits: usize, bit: bool) -> Self {
+	pub fn from_elem(nbits: u64, bit: bool) -> Self {
 		let elem = match bit {
 			false => 0,
 			true  => MAX
 		};
 		let len = nbits / 32 + 1;
 		let rem = nbits % 32;
-		let mut word_vec = vec![elem; len];
+		let mut word_vec = vec![elem; len as usize];
 		if rem > 0 {
 			if let Some(last_word) = word_vec.last_mut() {
 				*last_word = *last_word >> (32 - rem);
