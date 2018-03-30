@@ -75,6 +75,14 @@ impl DBVec {
 		}
 	}
 
+	pub fn copy(&self) -> Self {
+		let mut new_vec = Vec::with_capacity(self.words.len());
+		new_vec.extend(self.words.iter());
+		DBVec {
+			words: new_vec,
+			len_rem: self.len_rem
+		}
+	}
 	////////////////////////
 
 	pub fn words(&self) -> &Vec<u32> {
@@ -615,7 +623,6 @@ use DBVec;
 		// simple one-word vectors
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
 		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111011_11111111u32]);
-		let exp  = DBVec::from_u32_slice(                        &[0b11_11111111u32]);
 		let exp  = DBVec {
 			words: vec!(0b11_11111111u32),
 			len_rem: 10
@@ -640,11 +647,13 @@ use DBVec;
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
 		let (bit, suffix1) = vec1.different_suffix(30);
 		println!("suffix1: {:?}", suffix1);
+		assert_eq!(bit, true);
 		assert_eq!(suffix1, DBVec::from_elem(33, true));
 
 		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
 		let (bit2, suffix2) = vec2.different_suffix(31);
 		println!("suffix2: {:?}", suffix2);
+		assert_eq!(bit2, true);
 		assert_eq!(suffix2, DBVec::from_elem(32, true));
 	}
 
@@ -653,5 +662,12 @@ use DBVec;
 		let vec1 = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
 		assert_eq!(21, vec1.rank(true, 21));
 		assert_eq!(0, vec1.rank(false, 21));
+	}
+
+	#[test]
+	fn copy() {
+		let vec1 = DBVec::from_u32_slice(&[1234, 56789, 10111213]);
+		let vec2 = vec1.copy();
+		assert_eq!(vec1, vec2);
 	}
 }
