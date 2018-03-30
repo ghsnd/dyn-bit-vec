@@ -113,7 +113,7 @@ impl DBVec {
 		// count ones in all words but last
 		let words_index = (index / 32) as usize;
 		let words_part = &self.words[..words_index];
-		let mut nr_bits = match (index > 32000000) {
+		let mut nr_bits = match index > 32000000 {
 			false => words_part
 						.iter()
 						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64),
@@ -412,14 +412,14 @@ impl DBVec {
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let len = self.len();
-		write!(f, "DBVec: ({}, {}, ", len, self.rank_one(len));
+		let _a = write!(f, "DBVec: ({}, {}, ", len, self.rank_one(len));
 		let mut count = 0u8;
 		for word in self.words.iter() {
-			write!(f, "{:032b} ", word);
+			let _b = write!(f, "{:032b} ", word);
 			count += 1;
 			if count == 100 {
 				count = 1;
-				write!(f, "\n");
+				let _c = write!(f, "\n");
 			}
 		}
 		write!(f, ")")
