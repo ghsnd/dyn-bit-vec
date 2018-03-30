@@ -358,7 +358,6 @@ impl DBVec {
 
 	// returns the longest common prefix of self and the other
 	pub fn longest_common_prefix (&self, other: &DBVec) -> DBVec {
-		println!("-- Self:{:?}\n-- Other: {:?}", self, other);
 		let smallest_size = cmp::min(self.len(), other.len());
 		let mut processed_size = 0;
 		let mut common_words: Vec<u32> = Vec::new();
@@ -373,7 +372,6 @@ impl DBVec {
 					0 => 32,
 					_ => (smallest_size % 32) as usize
 				};
-				println!("nr_bits_to_check: {}", nr_bits_to_check);
 				let mut result: u32 = 0;
 				let mut do_push = false;
 				for bit_nr in 0..nr_bits_to_check {
@@ -394,7 +392,7 @@ impl DBVec {
 		}
 		DBVec {
 			words: common_words,
-			len_rem: len_rem as u8
+			len_rem: (len_rem % 32) as u8
 		}
 	}
 
