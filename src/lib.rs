@@ -405,6 +405,7 @@ impl DBVec {
 	}
 
 	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
+		println!("> difsuf: self: {:?}", self);
 		let first_bit = self.get(at);
 		let new_at = at + 1;
 		let at_word = (new_at / 32) as usize;
