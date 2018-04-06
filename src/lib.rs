@@ -334,11 +334,11 @@ impl DBVec {
 			// check if last word can be deleted
 			if self.len_rem == 0 {
 				self.len_rem = 32;
-			}else if self.len_rem <= nr_bits {
+			} else if self.len_rem <= nr_bits {
 				self.len_rem += 32;
 				self.words.pop();
 			}
-			self.len_rem -= nr_bits;
+			self.len_rem = (self.len_rem - nr_bits) % 32;
 		}
 	}
 
@@ -405,14 +405,13 @@ impl DBVec {
 	}
 
 	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
-		println!("> difsuf: self: {:?}", self);
 		let first_bit = self.get(at);
 		let new_at = at + 1;
 		let at_word = (new_at / 32) as usize;
 		let at_bit = (new_at % 32) as u8;
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
-		result_vec.shift_to_begin(at_bit);
-		result_vec.len_rem = ((self.len() - new_at) % 32) as u8;
+		result_vec.len_rem = self.len_rem;
+		result_vec.shift_to_begin(at_bit);	// the shift corrects len_rem
 		(first_bit, result_vec)
 	}
 
