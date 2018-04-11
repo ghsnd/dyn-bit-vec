@@ -211,6 +211,11 @@ impl DBVec {
 		}
 	}
 
+	pub fn append_vec(&mut self, other: &mut Self) {
+		let self_len = self.len();
+		self.insert_vec(other, self_len);
+	}
+
 	pub fn insert_vec(&mut self, other: &mut Self, index: u64) {
 		let self_len = self.len();
 		if index > self_len {
