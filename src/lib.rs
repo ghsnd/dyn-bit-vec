@@ -103,13 +103,13 @@ impl DBVec {
 	}
 
 	fn inc_len(&mut self) {
-		self.len_rem += 1;
 		if self.len_rem == 32 || self.words.len() == 0 {
 			self.words.push(0);
 			if self.len_rem == 32 {
 				self.len_rem = 0;
 			}
 		}
+		self.len_rem += 1;
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -201,10 +201,10 @@ impl DBVec {
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
-		let bit_index = (self.len() % 32) as usize;
+		let bit_index = (self.len_rem % 32) as usize;
 		self.inc_len();
 		if bit {
-			let word_index = (self.len() / 32) as usize;
+			let word_index = self.words.len() - 1 as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
 				word.set_bit(bit_index, bit);
 			}
@@ -228,15 +228,17 @@ impl DBVec {
 		let start_insertion_bit_index = (index % 32) as u8;
 		let end_insertion_bit_index = (start_insertion_bit_index + other.len_rem) % 32;
 
-		let mut self_tail_vec = self.split(index);
 		other.align_to_end(start_insertion_bit_index);
-		if start_insertion_bit_index < end_insertion_bit_index {
-			let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
-			self_tail_vec.align_to_end(shift_amount);
-		} else if start_insertion_bit_index > end_insertion_bit_index{
-			let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
-			self_tail_vec.shift_to_begin(shift_amount);
-			self_tail_vec.words.pop();
+		let mut self_tail_vec = self.split(index);
+		if !self_tail_vec.is_empty() {
+			if start_insertion_bit_index < end_insertion_bit_index {
+				let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
+				self_tail_vec.align_to_end(shift_amount);
+			} else if start_insertion_bit_index > end_insertion_bit_index{
+				let shift_amount = start_insertion_bit_index - end_insertion_bit_index;
+				self_tail_vec.shift_to_begin(shift_amount);
+				self_tail_vec.words.pop();
+			}
 		}
 
 		// 'merge' last word of first part of self with first word of other
@@ -349,19 +351,26 @@ impl DBVec {
 
 	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
 	pub fn split(&mut self, at: u64) -> Self {
+		if at == self.len() {
+			return DBVec::new();
+		}
+
 		// just split the words vector
 		let at_word = at / 32;
 		let mut other_words = self.words.split_off(at_word as usize);
+		println!("other_words: {:?}\nself.words: {:?}", other_words, self.words);
 		self.words.shrink_to_fit();
 
 		// put the first relevant bits of other_words at the end of self.words
 		let start_insertion_bit_index = (at % 32) as u8;
+		if start_insertion_bit_index != 0 {
 		let other_bit_mask = MAX << start_insertion_bit_index;
-		let self_bit_mask = other_bit_mask ^ MAX;
-		if let Some(first_of_other) = other_words.first_mut() {
-			let last_of_self = *first_of_other & self_bit_mask;
-			*first_of_other = *first_of_other & other_bit_mask;
-			self.words.push(last_of_self);
+			let self_bit_mask = other_bit_mask ^ MAX;
+			if let Some(first_of_other) = other_words.first_mut() {
+				let last_of_self = *first_of_other & self_bit_mask;
+				*first_of_other = *first_of_other & other_bit_mask;
+				self.words.push(last_of_self);
+			}
 		}
 		DBVec {
 			words: other_words,
@@ -469,7 +478,7 @@ use DBVec;
 	}
 
 	#[test]
-	fn insert() {
+	fn insert_bit() {
 		let mut vec = DBVec::new();
 		vec.insert(true, 0);
 		println!("{:?}", vec);
@@ -594,10 +603,38 @@ use DBVec;
 	}
 
 	#[test]
-	fn split() {
-		let mut vec = DBVec::from_elem(35, true);
-		let vec2 = vec.split(30);
-		println!("{:?}", vec2);
+	fn split_at_length() {
+		// split at length => tail should be empty
+		let mut short_vec = DBVec::new();
+		short_vec.push(false);
+		short_vec.push(true);
+		println!("{:?}", short_vec);
+		let tail_vec = short_vec.split(2);
+		println!("tail: {:?}", tail_vec);
+		assert!(tail_vec.is_empty());
+		assert_eq!(short_vec.len(), 2);
+		assert_eq!(short_vec.rank_one(2), 1);
+	}
+
+	#[test]
+	fn split_two_in_half() {
+		// split a vector of 2 words into 2 of one word
+		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		println!("{:?}", vec);
+		let tail_vec = vec.split(32);
+		println!("tail: {:?}", tail_vec);
+		assert_eq!(vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]));
+		assert_eq!(tail_vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]));
+	}
+
+		#[test]
+	fn split_somewhere_else() {
+		// split a vector of 2 words somewhere in the second word
+		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
+		println!("{:?}", vec);
+		let tail_vec = vec.split(34);
+		println!("tail: {:?}", tail_vec);
+		assert_eq!(tail_vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111100u32]));
 	}
 
 	#[test]
