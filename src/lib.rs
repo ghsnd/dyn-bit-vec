@@ -251,8 +251,12 @@ impl DBVec {
 
 		// 'merge' last word of other with first word of last part of self_tail_vec
 		if let Some(last_of_other) = other.words.last() {
-			if let Some(first_tail) = self_tail_vec.words.first_mut() {
-				*first_tail = *last_of_other | *first_tail;
+			if !self_tail_vec.is_empty() {
+				if let Some(first_tail) = self_tail_vec.words.first_mut() {
+					*first_tail = *last_of_other | *first_tail;
+				}
+			} else {
+				self_tail_vec.words.push(*last_of_other);
 			}
 		}
 		other.words.pop();
@@ -658,6 +662,26 @@ use DBVec;
 			0b00000000000000000000010000000000, 0b00000000000000000000010000000000,
 			0b00000000000000000000010000000000, 0b00000000000000000000010000000000,
 			0b00000000000000000000000011111100]);
+	}
+
+	#[test]
+	fn append_vec_short() {
+		// insert: self: DBVec: (2, 1, 00000000000000000000000000000010 ), other: DBVec: (3, 0, 00000000000000000000000000000000 )
+		let mut vec1 = DBVec::new();
+		vec1.push(false);
+		vec1.push(true);
+		let mut vec2 = DBVec::new();
+		vec2.push(false);
+		vec2.push(false);
+		vec2.push(false);
+		vec1.append_vec(&mut vec2);
+		let mut result = DBVec::new();
+		result.push(false);
+		result.push(true);
+		result.push(false);
+		result.push(false);
+		result.push(false);
+		assert_eq!(vec1, result);
 	}
 
 	#[test]
