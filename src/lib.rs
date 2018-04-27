@@ -211,6 +211,41 @@ impl DBVec {
 		}
 	}
 
+	// Position (index) of occurrence_nr-th occurrence of bit. Starts at one!
+	pub fn select(&self, bit: bool, occurrence_nr: u64) -> Option<u64> {
+		if occurrence_nr == 0 {
+			return None
+		}
+		let mut count = 0;
+		let mut prev_count = 0;
+
+		for (index, word) in self.words.iter().enumerate() {
+			count += match bit {
+				false => word.count_zeros() as u64,
+				true  => word.count_ones() as u64
+			};
+			if count >= occurrence_nr {
+				for bit_index in 0..32 {
+					let word_bit = word.get_bit(bit_index);
+					if word_bit == bit {
+						prev_count += 1;
+					}
+					if prev_count == occurrence_nr {
+						let result_index = (index * 32 + bit_index) as u64;
+						if result_index < self.len() {
+							return Some(result_index)
+						} else {
+							return None;
+						}
+					}
+				}
+			} else {
+				prev_count = count;
+			}
+		}
+		None
+	}
+
 	pub fn append_vec(&mut self, other: &mut Self) {
 		let self_len = self.len();
 		self.insert_vec(other, self_len);
@@ -735,5 +770,36 @@ use DBVec;
 		let vec1 = DBVec::from_u32_slice(&[1234, 56789, 10111213]);
 		let vec2 = vec1.copy();
 		assert_eq!(vec1, vec2);
+	}
+
+	#[test]
+	fn select() {
+		// pretty normal case
+		let vec = DBVec::from_u32_slice(
+		&[0b11111111111111111111011111101111,
+		  0b11111100111111111111111111111110,
+		  0b11111111111111111111011111101111,
+		  0b11111111111101111111110111100011]);
+		assert_eq!(vec.select(false, 1), Some(4));
+		assert_eq!(vec.select(false, 2), Some(11));
+		assert_eq!(vec.select(false, 12), Some(115));
+		assert_eq!(vec.select(true, 1), Some(0));
+		assert_eq!(vec.select(true, 2), Some(1));
+		assert_eq!(vec.select(true, 31), Some(33));
+		assert_eq!(vec.select(false, 0), None);
+
+		// empty vec
+		let vec2 = DBVec::new();
+		assert_eq!(vec2.select(false, 1), None);
+		assert_eq!(vec2.select(true, 1), None);
+
+		// vec with 2 elements, see if we go over bandaries
+		let mut vec3 = DBVec::new();
+		vec3.push(false);
+		vec3.push(true);
+		assert_eq!(vec3.select(false, 1), Some(0));
+		assert_eq!(vec3.select(true, 1), Some(1));
+		assert_eq!(vec3.select(false, 2), None);
+		assert_eq!(vec3.select(true, 2), None);
 	}
 }
