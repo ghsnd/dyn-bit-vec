@@ -143,7 +143,7 @@ impl DBVec {
 		nr_bits
 	}
 
-	fn rank_zero(&self, pos: u64) -> u64 {
+	pub fn rank_zero(&self, pos: u64) -> u64 {
 		if pos == 0 {
 			pos
 		} else {
@@ -220,6 +220,7 @@ impl DBVec {
 		let mut prev_count = 0;
 
 		for (index, word) in self.words.iter().enumerate() {
+			// it would be better if this check on calling which function could happen *before* the iteration
 			count += match bit {
 				false => word.count_zeros() as u64,
 				true  => word.count_ones() as u64
