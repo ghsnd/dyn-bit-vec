@@ -91,23 +91,24 @@ impl DBVec {
 
 	pub fn len(&self) -> u64 {
 		match self.words.len() {
-			0 => self.len_rem as u64,
-			_ => {
+			0 => 0,
+			_ => ((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
+			/*_ => {
 					if self.len_rem == 0 {
 						(self.words.len() * 32) as u64
 					} else {
 						((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
 					}
-				 }
+				 }*/
 		}
 	}
 
 	fn inc_len(&mut self) {
-		if self.len_rem == 32 || self.words.len() == 0 {
+		if self.len_rem == 31 {
+			self.len_rem = 0;
+		}
+		if self.len_rem == 0 /*|| self.words.is_empty()*/ {
 			self.words.push(0);
-			if self.len_rem == 32 {
-				self.len_rem = 0;
-			}
 		}
 		self.len_rem += 1;
 	}
@@ -202,13 +203,58 @@ impl DBVec {
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
 		let bit_index = (self.len_rem % 32) as usize;
+		println!("> before inc_len: {:?}", self);
 		self.inc_len();
+		println!("> after inc_len:  {:?}", self);
 		if bit {
 			let word_index = self.words.len() - 1 as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
 				word.set_bit(bit_index, bit);
 			}
 		}
+	}
+
+	pub fn delete(&mut self, index: u64) {
+		if index > self.len() {
+			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
+		}
+		let bit_index = (index % 32) as usize;
+		let word_index = (index / 32) as usize;
+
+		let mut first_bit = false;
+		// for every word from end until word_index + 1: shift right; put first_bit as last bit; remember first_bit etc
+		for word in self.words.iter_mut().skip(word_index + 1).rev() {
+			let last_bit = first_bit;
+			first_bit = word.get_bit(0);
+			*word = *word >> 1;
+			*word.set_bit(31, last_bit);
+		}
+
+		// delete the relevant bit
+		if let Some(word) = self.words.get_mut(word_index) {
+			for remaining_bit_index in bit_index..31 {
+				let next_bit = word.get_bit(remaining_bit_index + 1);
+				word.set_bit(remaining_bit_index, next_bit);
+			}
+			word.set_bit(31, first_bit);
+		}
+
+		// decrease length and check if the last word is to be deleted
+		self.len_rem -= 1;
+		if self.len_rem == 0 {
+			self.words.pop();
+			if !self.words.is_empty() {
+				self.len_rem = 31;
+			}
+		}
+		
+		if self.len_rem == 32 || self.words.len() == 0 {
+			self.words.push(0);
+			if self.len_rem == 32 {
+				self.len_rem = 0;
+			}
+		}
+		self.len_rem += 1;
 	}
 
 	// Position (index) of occurrence_nr-th occurrence of bit. Starts at one!
@@ -802,5 +848,14 @@ use DBVec;
 		assert_eq!(vec3.select(true, 1), Some(1));
 		assert_eq!(vec3.select(false, 2), None);
 		assert_eq!(vec3.select(true, 2), None);
+	}
+
+	#[test]
+	fn delete() {
+		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
+		println!("initial vec: {:?}", vec);
+		vec.push(true);
+		println!("initial vec: {:?}", vec);
+		// TODO this is wrong!
 	}
 }
