@@ -10,7 +10,11 @@ use std::cmp;
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DBVec {
 	words: Vec<u32>,
-	len_rem: u8,	// length = (words.length - 1) * 32 + len_rem
+	//len_rem: u8,	// length = (words.length - 1) * 32 + len_rem
+	cur_bit_index: u8	// current bit index in the last word.
+						// 0: first bit
+						// 0 and words.len() == 0: empty
+						// 31: last bit
 }
 
 impl DBVec {
@@ -20,7 +24,7 @@ impl DBVec {
 	pub fn new() -> Self {
 		DBVec {
 			words: Vec::new(),
-			len_rem: 0,
+			cur_bit_index: 0,
 		}
 	}
 
@@ -29,7 +33,7 @@ impl DBVec {
 		temp_vec.extend_from_slice(slice);
 		DBVec {
 			words: temp_vec,
-			len_rem: 0,
+			cur_bit_index: 31,
 		}
 	}
 
@@ -50,11 +54,15 @@ impl DBVec {
 		}
 		DBVec {
 			words: temp_vec,
-			len_rem: ((bytes.len() * 8) % 32) as u8,
+			cur_bit_index: ((bytes.len() * 8 - 1) % 32) as u8,
 		}
 	}
 
 	pub fn from_elem(nbits: u64, bit: bool) -> Self {
+		if nbits == 0 {
+			return DBVec::new()
+		}
+
 		let elem = match bit {
 			false => 0,
 			true  => MAX
@@ -71,7 +79,7 @@ impl DBVec {
 		}
 		DBVec {
 			words: word_vec,
-			len_rem: rem as u8
+			cur_bit_index: ((31 + rem) % 32) as u8
 		}
 	}
 
@@ -80,7 +88,7 @@ impl DBVec {
 		new_vec.extend(self.words.iter());
 		DBVec {
 			words: new_vec,
-			len_rem: self.len_rem
+			cur_bit_index: self.cur_bit_index
 		}
 	}
 	////////////////////////
@@ -92,7 +100,7 @@ impl DBVec {
 	pub fn len(&self) -> u64 {
 		match self.words.len() {
 			0 => 0,
-			_ => ((self.words.len() - 1) * 32) as u64 + self.len_rem as u64
+			_ => ((self.words.len() - 1) * 32) as u64 + self.cur_bit_index as u64 + 1
 			/*_ => {
 					if self.len_rem == 0 {
 						(self.words.len() * 32) as u64
@@ -104,13 +112,16 @@ impl DBVec {
 	}
 
 	fn inc_len(&mut self) {
-		if self.len_rem == 31 {
-			self.len_rem = 0;
-		}
-		if self.len_rem == 0 /*|| self.words.is_empty()*/ {
+		if self.words.is_empty() {
 			self.words.push(0);
+			self.cur_bit_index = 0;
+		} else {
+			self.cur_bit_index += 1;
+			if self.cur_bit_index == 32 {
+				self.words.push(0);
+				self.cur_bit_index = 0;
+			}
 		}
-		self.len_rem += 1;
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -202,16 +213,17 @@ impl DBVec {
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
 	// because insert requires additional checks
 	pub fn push(&mut self, bit: bool) {
-		let bit_index = (self.len_rem % 32) as usize;
-		println!("> before inc_len: {:?}", self);
+		//let bit_index = self.cur_bit_index as usize;
+		//println!("> before inc_len: {:?}", self);
 		self.inc_len();
-		println!("> after inc_len:  {:?}", self);
+		//println!("> after inc_len:  {:?}", self);
 		if bit {
 			let word_index = self.words.len() - 1 as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
-				word.set_bit(bit_index, bit);
+				word.set_bit(self.cur_bit_index as usize, bit);
 			}
 		}
+		println!("push({}); result:  {:?}", bit, self);
 	}
 
 	pub fn delete(&mut self, index: u64) {
@@ -240,21 +252,13 @@ impl DBVec {
 		}
 
 		// decrease length and check if the last word is to be deleted
-		self.len_rem -= 1;
-		if self.len_rem == 0 {
+		if self.cur_bit_index == 0 {
 			self.words.pop();
 			if !self.words.is_empty() {
-				self.len_rem = 31;
+				self.cur_bit_index = 32;
 			}
 		}
-		
-		if self.len_rem == 32 || self.words.len() == 0 {
-			self.words.push(0);
-			if self.len_rem == 32 {
-				self.len_rem = 0;
-			}
-		}
-		self.len_rem += 1;
+		self.cur_bit_index -= 1;
 	}
 
 	// Position (index) of occurrence_nr-th occurrence of bit. Starts at one!
@@ -304,11 +308,11 @@ impl DBVec {
 			panic!("Index out of bound: index = {} while the length is {}", index, self_len);
 		}
 
-		let new_len_rem = (self.len_rem + other.len_rem) % 32;
+		let new_cur_bit_index = (self.cur_bit_index + other.cur_bit_index) % 32;
 
 		// determine insertion point
 		let start_insertion_bit_index = (index % 32) as u8;
-		let end_insertion_bit_index = (start_insertion_bit_index + other.len_rem) % 32;
+		let end_insertion_bit_index = (start_insertion_bit_index + other.cur_bit_index) % 32;
 
 		other.align_to_end(start_insertion_bit_index);
 		let mut self_tail_vec = self.split(index);
@@ -346,7 +350,7 @@ impl DBVec {
 		//merge vectors
 		self.words.append(&mut other.words);
 		self.words.append(&mut self_tail_vec.words);
-		self.len_rem = new_len_rem;
+		self.cur_bit_index = new_cur_bit_index;
 	}
 
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
@@ -392,16 +396,16 @@ impl DBVec {
 	// This means nr_bits leading zero's are introduced; the vector grows.
 	// Overflowing bits are put into a new word at the end of the vector.
 	pub fn align_to_end(&mut self, nr_bits: u8) {
-		if self.len_rem == 0 {
+		if self.cur_bit_index == 0 {
 			self.words.push(0u32);
 		}
 		let overflowing_bits = (MAX >> nr_bits) ^ MAX;
 
-		// check if next word needed? self.len_rem + nr_bits > 32 ???
-		self.len_rem += nr_bits;
-		if self.len_rem > 32 {
+		// check if next word needed? self.cur_bit_index + nr_bits > 32 ???
+		self.cur_bit_index += nr_bits;
+		if self.cur_bit_index > 32 {
 			self.words.push(0u32);
-			self.len_rem = self.len_rem % 32;
+			self.cur_bit_index = self.cur_bit_index % 32;
 		}
 
 		// now do the trick. rotate each word to left, put the 'overflow' into the next word
@@ -425,13 +429,13 @@ impl DBVec {
 			}
 
 			// check if last word can be deleted
-			if self.len_rem == 0 {
-				self.len_rem = 32;
-			} else if self.len_rem <= nr_bits {
-				self.len_rem += 32;
+			if self.cur_bit_index == 0 {
+				self.cur_bit_index = 32;
+			} else if self.cur_bit_index <= nr_bits {
+				self.cur_bit_index += 32;
 				self.words.pop();
 			}
-			self.len_rem = (self.len_rem - nr_bits) % 32;
+			self.cur_bit_index = (self.cur_bit_index - nr_bits) % 32;
 		}
 	}
 
@@ -460,7 +464,7 @@ impl DBVec {
 		}
 		DBVec {
 			words: other_words,
-			len_rem: 0
+			cur_bit_index: 0
 		}
 	}
 
@@ -470,7 +474,7 @@ impl DBVec {
 		let mut processed_size = 0;
 		let mut common_words: Vec<u32> = Vec::new();
 		let zipped_iter = self.words.iter().zip(other.words.iter());
-		let mut len_rem = 0;
+		let mut cur_bit_index = 0;
 		for word_pair in zipped_iter {
 			processed_size += 32;
 			if word_pair.0 == word_pair.1 && processed_size < smallest_size {
@@ -486,7 +490,7 @@ impl DBVec {
 					let bit = word_pair.0.get_bit(bit_nr);
 					if bit == word_pair.1.get_bit(bit_nr) {
 						result.set_bit(bit_nr, bit);
-						len_rem = bit_nr + 1;
+						cur_bit_index = bit_nr + 1;
 						do_push = true;
 					} else {
 						break;
@@ -500,7 +504,7 @@ impl DBVec {
 		}
 		DBVec {
 			words: common_words,
-			len_rem: (len_rem % 32) as u8
+			cur_bit_index: (cur_bit_index % 32) as u8
 		}
 	}
 
@@ -510,8 +514,8 @@ impl DBVec {
 		let at_word = (new_at / 32) as usize;
 		let at_bit = (new_at % 32) as u8;
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
-		result_vec.len_rem = self.len_rem;
-		result_vec.shift_to_begin(at_bit);	// the shift corrects len_rem
+		result_vec.cur_bit_index = self.cur_bit_index;
+		result_vec.shift_to_begin(at_bit);	// the shift corrects cur_bit_index
 		(first_bit, result_vec)
 	}
 
@@ -773,7 +777,7 @@ use DBVec;
 		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111011_11111111u32]);
 		let exp  = DBVec {
 			words: vec!(0b11_11111111u32),
-			len_rem: 10
+			cur_bit_index: 9
 		};
 		let result = vec1.longest_common_prefix(&vec2);
 		assert_eq!(exp, result);
