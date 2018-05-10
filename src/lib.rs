@@ -303,19 +303,27 @@ impl DBVec {
 	}
 
 	pub fn insert_vec(&mut self, other: &mut Self, index: u64) {
+		println!("> index: {}", index);
 		let self_len = self.len();
 		if index > self_len {
 			panic!("Index out of bound: index = {} while the length is {}", index, self_len);
 		}
 
-		let new_cur_bit_index = (self.cur_bit_index + other.cur_bit_index) % 32;
+		let new_cur_bit_index = (self.cur_bit_index + other.cur_bit_index + 1) % 32;
+		println!("> new_cur_bit_index: {}", new_cur_bit_index);
 
 		// determine insertion point
 		let start_insertion_bit_index = (index % 32) as u8;
-		let end_insertion_bit_index = (start_insertion_bit_index + other.cur_bit_index) % 32;
+		let end_insertion_bit_index = (start_insertion_bit_index + other.cur_bit_index + 1) % 32;
+		println!("> start_insertion_bit_index: {}", start_insertion_bit_index);
+		println!("> other.cur_bit_index: {}", other.cur_bit_index);
+		println!("> end_insertion_bit_index: {}", end_insertion_bit_index);
 
 		other.align_to_end(start_insertion_bit_index);
+		println!("> other after align: {:?}", self);
 		let mut self_tail_vec = self.split(index);
+		println!("> self after split: {:?}", self);
+		println!("> tail after split: {:?}", self_tail_vec);
 		if !self_tail_vec.is_empty() {
 			if start_insertion_bit_index < end_insertion_bit_index {
 				let shift_amount = end_insertion_bit_index - start_insertion_bit_index;
@@ -326,6 +334,7 @@ impl DBVec {
 				self_tail_vec.words.pop();
 			}
 		}
+		println!("> tail after shift: {:?}", self_tail_vec);
 
 		// 'merge' last word of first part of self with first word of other
 		if let Some(last_of_first_part) = self.words.last() {
@@ -334,6 +343,10 @@ impl DBVec {
 			}
 		}
 		self.words.pop();
+		println!(">> self after merge1:      {:?}", self);
+		println!(">> self tail after merge1: {:?}", self_tail_vec);
+		println!(">> other after merge1:     {:?}", other);
+		
 
 		// 'merge' last word of other with first word of last part of self_tail_vec
 		if let Some(last_of_other) = other.words.last() {
@@ -345,7 +358,11 @@ impl DBVec {
 				self_tail_vec.words.push(*last_of_other);
 			}
 		}
+		println!(">>> self after merge2:      {:?}", self);
+		println!(">>> self tail after merge2: {:?}", self_tail_vec);
+		println!(">>> other after merge2:     {:?}", other);
 		other.words.pop();
+		println!(">>> other after merge2 pop:     {:?}", other);
 
 		//merge vectors
 		self.words.append(&mut other.words);
@@ -396,6 +413,9 @@ impl DBVec {
 	// This means nr_bits leading zero's are introduced; the vector grows.
 	// Overflowing bits are put into a new word at the end of the vector.
 	pub fn align_to_end(&mut self, nr_bits: u8) {
+		println!("== align {:?}", self);
+		println!("== cur_bit_index {}", self.cur_bit_index);
+		println!("== nr_bits: {}", nr_bits);
 		if self.cur_bit_index == 0 {
 			self.words.push(0u32);
 		}
@@ -403,7 +423,7 @@ impl DBVec {
 
 		// check if next word needed? self.cur_bit_index + nr_bits > 32 ???
 		self.cur_bit_index += nr_bits;
-		if self.cur_bit_index > 32 {
+		if self.cur_bit_index > 31 {
 			self.words.push(0u32);
 			self.cur_bit_index = self.cur_bit_index % 32;
 		}
@@ -713,8 +733,8 @@ use DBVec;
 		println!("{:?}", vec);
 		let tail_vec = vec.split(32);
 		println!("tail: {:?}", tail_vec);
-		assert_eq!(vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]));
-		assert_eq!(tail_vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]));
+		assert_eq!(vec.words, &[0b11111111_11111111_11111111_11111111u32]);
+		assert_eq!(tail_vec.words, &[0b11111111_11111111_11111111_11111111u32]);
 	}
 
 		#[test]
@@ -724,7 +744,7 @@ use DBVec;
 		println!("{:?}", vec);
 		let tail_vec = vec.split(34);
 		println!("tail: {:?}", tail_vec);
-		assert_eq!(tail_vec, DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111100u32]));
+		assert_eq!(tail_vec.words, &[0b11111111_11111111_11111111_11111100u32]);
 	}
 
 	#[test]
@@ -752,21 +772,22 @@ use DBVec;
 
 	#[test]
 	fn append_vec_short() {
-		// insert: self: DBVec: (2, 1, 00000000000000000000000000000010 ), other: DBVec: (3, 0, 00000000000000000000000000000000 )
 		let mut vec1 = DBVec::new();
+		vec1.push(true);
 		vec1.push(false);
 		vec1.push(true);
 		let mut vec2 = DBVec::new();
+		vec2.push(true);
 		vec2.push(false);
-		vec2.push(false);
-		vec2.push(false);
+		vec2.push(true);
 		vec1.append_vec(&mut vec2);
 		let mut result = DBVec::new();
-		result.push(false);
 		result.push(true);
 		result.push(false);
+		result.push(true);
+		result.push(true);
 		result.push(false);
-		result.push(false);
+		result.push(true);
 		assert_eq!(vec1, result);
 	}
 
