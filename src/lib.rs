@@ -439,6 +439,9 @@ impl DBVec {
 
 	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
 	pub fn shift_to_begin(&mut self, nr_bits: u8) {
+		println!("<< self {:?}", self);
+		println!("<< self.cur_bit_index {:?}", self.cur_bit_index);
+		println!("<< nr_bits {}", nr_bits);
 		if nr_bits > 0 {
 			let underflowing_bits = (MAX << nr_bits) ^ MAX;
 			let mut underflow = 0u32;
@@ -451,7 +454,7 @@ impl DBVec {
 			// check if last word can be deleted
 			if self.cur_bit_index == 0 {
 				self.cur_bit_index = 32;
-			} else if self.cur_bit_index <= nr_bits {
+			} else if self.cur_bit_index < nr_bits {
 				self.cur_bit_index += 32;
 				self.words.pop();
 			}
