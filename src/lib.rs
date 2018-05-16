@@ -103,6 +103,25 @@ impl DBVec {
 		}
 	}
 
+	pub fn to_bytes(&self) -> Vec<u8> {
+		let len = self.len();
+		let mut byte_vec: Vec<u8> = Vec::with_capacity(self.words.len() / 4);
+		let mut bit_counter = 0;
+		for word in &self.words {
+			let mut temp_word = 0 + word; // this is a lame trick to fight the borrow checker... can be done better?
+			for _ in 0..3 {
+				if bit_counter > len {
+					break;
+				}
+				let byte = (temp_word & 0b00000000_00000000_00000000_11111111) as u8;
+				byte_vec.push(byte);
+				temp_word = temp_word >> 8;
+				bit_counter += 8;
+			}
+		}
+		byte_vec
+	}
+
 	fn inc_len(&mut self) {
 		if self.words.is_empty() {
 			self.words.push(0);
