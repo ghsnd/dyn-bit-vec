@@ -176,6 +176,12 @@ impl DBVec {
 		}
 	}
 
+	pub fn set_none(&mut self) {
+		for word in &mut self.words {
+			*word = 0;
+		}
+	}
+
 	// insert a bit at position 'index'
 	pub fn insert(&mut self, bit: bool, index: u64) {
 		if index > self.len() {
@@ -499,7 +505,10 @@ impl DBVec {
 		}
 		DBVec {
 			words: common_words,
-			cur_bit_index: ((processed_bits - 1) % 32) as u8
+			cur_bit_index: match processed_bits {
+				0 => 0,
+				_ => ((processed_bits - 1) % 32) as u8
+			}
 		}
 	}
 
