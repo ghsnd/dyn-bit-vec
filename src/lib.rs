@@ -40,15 +40,13 @@ impl DBVec {
 		let mut temp_vec: Vec<u32> = Vec::with_capacity(bytes.len() * 4);
 		let mut temp_int = 0u32;
 		for byte_pos in bytes.iter().enumerate() {
-			temp_int = temp_int | (*byte_pos.1 as u32);
+			temp_int = temp_int | (*byte_pos.1 as u32) << byte_pos.0 % 4 * 8;
 			if byte_pos.0 % 4 == 3 {
 				temp_vec.push(temp_int);
 				temp_int = 0;
 			}
-			temp_int = temp_int << 8;
 		}
 		if bytes.len() % 4 != 0 {
-			temp_int = temp_int >> 8;
 			temp_vec.push(temp_int);
 		}
 		DBVec {
@@ -105,12 +103,12 @@ impl DBVec {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		let len = self.len();
-		let mut byte_vec: Vec<u8> = Vec::with_capacity(self.words.len() / 4);
+		let mut byte_vec: Vec<u8> = Vec::with_capacity(self.words.len() / 8);
 		let mut bit_counter = 0;
 		for word in &self.words {
 			let mut temp_word = 0 + word; // this is a lame trick to fight the borrow checker... can be done better?
-			for _ in 0..3 {
-				if bit_counter > len {
+			for _ in 0..4 {
+				if bit_counter >= len {
 					break;
 				}
 				let byte = (temp_word & 0b00000000_00000000_00000000_11111111) as u8;
@@ -660,7 +658,7 @@ use DBVec;
 		assert!(vec6.starts_with(&vec5));
 
 		// test 4: different vectors
-		let vec7 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10100000]);
+		let vec7 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000]);
 		let vec8 = DBVec::from_bytes(&[0b10000000, 0b10000010, 0b10000100, 0b10001000, 0b10010000, 0b10100000]);
 		assert!(vec8.starts_with(&vec7));
 		assert!(!vec7.starts_with(&vec8));
@@ -885,5 +883,21 @@ use DBVec;
 		vec.push(true);
 		println!("initial vec: {:?}", vec);
 		// TODO this is wrong!
+	}
+
+	#[test]
+	fn to_bytes() {
+		//let vec1 = DBVec::from_bytes(&[1]);
+		//let bytes
+		for nr_bytes in 1..100 {
+			let mut byte_vec: Vec<u8> = Vec::with_capacity(nr_bytes);
+			for byte in 0..nr_bytes {
+				byte_vec.push(byte as u8);
+			}
+			let vec = DBVec::from_bytes(&byte_vec);
+			println!("{:?}", vec);
+			let byte_vec_2 = vec.to_bytes();
+			assert_eq!(byte_vec, byte_vec_2);
+		}
 	}
 }
