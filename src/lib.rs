@@ -266,10 +266,11 @@ impl DBVec {
 		if self.cur_bit_index == 0 {
 			self.words.pop();
 			if !self.words.is_empty() {
-				self.cur_bit_index = 32;
+				self.cur_bit_index = 31;
 			}
+		} else {
+			self.cur_bit_index -= 1;
 		}
-		self.cur_bit_index -= 1;
 	}
 
 	// Position (index) of occurrence_nr-th occurrence of bit. Starts at one!
