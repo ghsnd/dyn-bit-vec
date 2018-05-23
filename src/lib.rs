@@ -413,16 +413,13 @@ impl DBVec {
 			let self_words = &self.words[..common_word_len];
 			let other_words = &other.words[..common_word_len];
 			if self_words == other_words {
-				let self_last_word = self.words.last().unwrap();
-				let other_last_word = other.words.get(common_word_len).unwrap();
-				let bits_to_compare = (other.len() % 32) as usize;
-				if bits_to_compare > 0 {
-					let self_bits = self_last_word.get_bits(0..bits_to_compare);
-					let other_bits = other_last_word.get_bits(0..bits_to_compare);
-					self_bits == other_bits
-				} else {
-					true
-				}
+				let mask = match other.cur_bit_index {
+					0 => MAX,
+					_ => MAX >> 32 - other.cur_bit_index
+				};
+				let self_last_bits = self.words.last().unwrap() & mask;
+				let other_last_bits = other.words.get(common_word_len).unwrap() & mask;
+				self_last_bits == other_last_bits
 			} else {
 				false
 			}
