@@ -417,8 +417,8 @@ impl DBVec {
 					0 => MAX,
 					_ => MAX >> 32 - other.cur_bit_index
 				};
-				let self_last_bits = self.words.last().unwrap() & mask;
-				let other_last_bits = other.words.get(common_word_len).unwrap() & mask;
+				let self_last_bits = self.words.get(common_word_len).unwrap() & mask;
+				let other_last_bits = other.words.last().unwrap() & mask;
 				self_last_bits == other_last_bits
 			} else {
 				false
