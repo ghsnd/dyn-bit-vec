@@ -519,8 +519,8 @@ impl DBVec {
 			let word_2 = other.words.get(index).unwrap();
 			let mut result_word = 0;
 			let mut do_push = false;
-			let mut bits_to_check = ((smallest_size - processed_bits) % 32) as usize;
-			if bits_to_check == 0 {
+			let mut bits_to_check = (smallest_size - processed_bits) as usize;
+			if bits_to_check >= 32 {
 				bits_to_check = 32;
 			}
 			for bit_nr in 0..bits_to_check {
@@ -765,7 +765,7 @@ use DBVec;
 		assert_eq!(tail_vec.words, &[0b11111111_11111111_11111111_11111111u32]);
 	}
 
-		#[test]
+	#[test]
 	fn split_somewhere_else() {
 		// split a vector of 2 words somewhere in the second word
 		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
@@ -873,6 +873,19 @@ use DBVec;
 		let long_vec3 = DBVec::from_u32_slice(&[256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]);
 		let result_4 = long_vec2.longest_common_prefix(&long_vec3);
 		assert_eq!(long_vec1, result_4);
+	}
+
+	#[test]
+	fn longest_common_prefix_2() {
+		let vec1 = DBVec::from_u32_slice(&[0b00110010_00010111_10010111_10111000]);
+		let vec2 = DBVec::from_u32_slice(&[0b00010000_00010001_00110111_10111000]);
+		let result = vec1.longest_common_prefix(&vec2);
+		let exp  = DBVec {
+			words: vec!(0b10111_10111000u32),
+			cur_bit_index: 12
+		};
+		println!("{:?}", result);
+		assert_eq!(exp, result);
 	}
 
 	#[test]
