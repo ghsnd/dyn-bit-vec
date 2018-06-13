@@ -310,35 +310,30 @@ impl DBVec {
 	}
 
 	pub fn append_vec(&mut self, other: &mut Self) {
-		let mut new_bit_index = 0;
 		let self_len = self.len();
-
-		// special case: if self.len() is a word boundary, other can just be appended.
-		if self_len % 32 == 0 {
-			new_bit_index = other.cur_bit_index;
-
-		// normal case
-		} else {
-			let sum_len = self_len + other.len();
-			new_bit_index = match sum_len {
-				0 => 0,
-				_ => ((sum_len - 1) % 32) as u8
-			};
-			let bits_to_align = (self_len % 32) as u8;
-			other.align_to_end(bits_to_align);
-			let mut pop_self = false;
-			if let Some(first_of_other) = other.words.first_mut() {
-				if let Some(last_of_self) = self.words.last() {
-					*first_of_other = *last_of_self | *first_of_other;
-					pop_self = true;
-				} 
-			}
-			if pop_self {
-				self.words.pop();
-			}
-		}
+		self.cur_bit_index = match self_len % 32 {
+			0 => other.cur_bit_index,
+			_ => {
+					let sum_len = self_len + other.len();
+					let bits_to_align = (self_len % 32) as u8;
+					other.align_to_end(bits_to_align);
+					let mut pop_self = false;
+					if let Some(first_of_other) = other.words.first_mut() {
+						if let Some(last_of_self) = self.words.last() {
+							*first_of_other = *last_of_self | *first_of_other;
+							pop_self = true;
+						}
+					}
+					if pop_self {
+						self.words.pop();
+					}
+					match sum_len {
+						0 => 0,
+						_ => ((sum_len - 1) % 32) as u8
+					}
+				}
+		};
 		self.words.append(&mut other.words);
-		self.cur_bit_index = new_bit_index;
 	}
 
 //	pub fn insert_vec(&mut self, other: &mut Self, index: u64) {
