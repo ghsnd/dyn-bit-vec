@@ -21,3 +21,9 @@ for instance [bit-vec](https://crates.io/crates/bit-vec).
 * longest_common_prefix
 * append
 * split
+
+**WARNING:** this is work in progress; it may contain bugs!
+
+# Examples
+
+Have a look at the tests :)
