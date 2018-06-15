@@ -512,24 +512,25 @@ impl DBVec {
 			let index = (processed_bits / 32) as usize;
 			let word_1 = self.words.get(index).unwrap();
 			let word_2 = other.words.get(index).unwrap();
-			let mut result_word = 0;
-			let mut do_push = false;
 			let mut bits_to_check = (smallest_size - processed_bits) as usize;
 			if bits_to_check >= 32 {
 				bits_to_check = 32;
 			}
-			for bit_nr in 0..bits_to_check {
+			let mut bit_nr = 0;
+			while bit_nr < bits_to_check {
 				let bit = word_1.get_bit(bit_nr);
-				if bit == word_2.get_bit(bit_nr) {
-					result_word.set_bit(bit_nr, bit);
-					processed_bits += 1;
-					do_push = true;
-				} else {
+				if bit != word_2.get_bit(bit_nr) {
 					break;
 				}
+				bit_nr += 1;
 			}
-			if do_push {
+			// now bit_nr bits are the same.
+			if bit_nr > 0 {
+				let bits_too_much = 32 - bit_nr;
+				let mask = MAX >> bits_too_much;
+				let result_word = word_1 & mask;
 				common_words.push(result_word);
+				processed_bits += bit_nr as u64;
 			}
 		} else {
 			// set bits that exceed the size to 0
