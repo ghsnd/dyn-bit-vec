@@ -208,20 +208,20 @@ impl DBVec {
 		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 
-		let mut last_bit = false;
+		let mut last_bit = 0;
 		// change the word that has to be changed
 		if let Some(word) = self.words.get_mut(word_index) {
-			last_bit = word.get_bit(31);
+			last_bit = *word & 0b10000000_00000000_00000000_00000000u32;
 			Self::insert_in_word(word, bit_index, bit);
 		} 
 
 		// for every word from word_index + 1 until end: shift left; put last_bit as first bit; remember last_bit etc
 		let word_iter = self.words.iter_mut().skip(word_index + 1);
 		for word in word_iter {
-			let first_bit = last_bit;
-			last_bit = word.get_bit(31);
+			let first_bit = last_bit >> 31;
+			last_bit = *word & 0b10000000_00000000_00000000_00000000u32;
 			*word = *word << 1;
-			*word.set_bit(0, first_bit);
+			*word &= *word & first_bit;
 		}
 	}
 
@@ -388,11 +388,15 @@ impl DBVec {
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
 	#[inline]
 	fn insert_in_word(word: &mut u32, bit_index: usize, bit: bool) {
-		for remaining_bit_index in (bit_index + 1..32).rev() {
-			let prev_bit = word.get_bit(remaining_bit_index - 1);
-			word.set_bit(remaining_bit_index, prev_bit);
-		}
-		word.set_bit(bit_index, bit);
+		let shifted_word = ((MAX << bit_index) & *word) << 1;
+		*word &= MAX >> (31 - bit_index);
+		*word = match bit {
+			false => shifted_word | *word,
+			true  => {
+				let word_with_bit_set = 1 << bit_index;
+				shifted_word | word_with_bit_set | *word
+			}
+		};
 	}
 
 	// Returns true if 'other' is a subvector of 'self', starting at index 0.
