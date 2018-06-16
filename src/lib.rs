@@ -516,14 +516,16 @@ impl DBVec {
 			if bits_to_check >= 32 {
 				bits_to_check = 32;
 			}
-			let mut bit_nr = 0;
-			while bit_nr < bits_to_check {
-				let bit = word_1.get_bit(bit_nr);
-				if bit != word_2.get_bit(bit_nr) {
-					break;
-				}
-				bit_nr += 1;
-			}
+			// now determine how many bits are the same
+			// example:
+			// word_1 =             1100
+			// word_2 =             1000
+			// nr_bits_to_check = 3
+			// word_1 XOR word_2 =  0100   => bit on pos 2 differs! This is equal to the the number of trailing zero's.
+			// the to_check_mask is there to set bits beyond bits_to_check zero and thus to ignore them.
+			let to_check_mask = MAX >> (32 - bits_to_check);
+			let diff_bit_pos_mask = (word_1 ^ word_2) & to_check_mask;
+			let bit_nr = cmp::min(diff_bit_pos_mask.trailing_zeros() as usize, bits_to_check);
 			// now bit_nr bits are the same.
 			if bit_nr > 0 {
 				let bits_too_much = 32 - bit_nr;
