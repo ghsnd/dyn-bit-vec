@@ -516,23 +516,25 @@ impl DBVec {
 			if bits_to_check >= 32 {
 				bits_to_check = 32;
 			}
-			// now determine how many bits are the same
-			// example:
-			// word_1 =             1100
-			// word_2 =             1000
-			// nr_bits_to_check = 3
-			// word_1 XOR word_2 =  0100   => bit on pos 2 differs! This is equal to the the number of trailing zero's.
-			// the to_check_mask is there to set bits beyond bits_to_check zero and thus to ignore them.
-			let to_check_mask = MAX >> (32 - bits_to_check);
-			let diff_bit_pos_mask = (word_1 ^ word_2) & to_check_mask;
-			let bit_nr = cmp::min(diff_bit_pos_mask.trailing_zeros() as usize, bits_to_check);
-			// now bit_nr bits are the same.
-			if bit_nr > 0 {
-				let bits_too_much = 32 - bit_nr;
-				let mask = MAX >> bits_too_much;
-				let result_word = word_1 & mask;
-				common_words.push(result_word);
-				processed_bits += bit_nr as u64;
+			if bits_to_check > 0 {
+				// now determine how many bits are the same
+				// example:
+				// word_1 =             1100
+				// word_2 =             1000
+				// nr_bits_to_check = 3
+				// word_1 XOR word_2 =  0100   => bit on pos 2 differs! This is equal to the the number of trailing zero's.
+				// the to_check_mask is there to set bits beyond bits_to_check zero and thus to ignore them.
+				let to_check_mask = MAX << (bits_to_check - 1);
+				let diff_bit_pos_mask = (word_1 ^ word_2) | to_check_mask;
+				let bit_nr = diff_bit_pos_mask.trailing_zeros() as usize;
+				// now bit_nr bits are the same.
+				if bit_nr > 0 {
+					let bits_too_much = 32 - bit_nr;
+					let mask = MAX >> bits_too_much;
+					let result_word = word_1 & mask;
+					common_words.push(result_word);
+					processed_bits += bit_nr as u64;
+				}
 			}
 		} else {
 			// set bits that exceed the size to 0
