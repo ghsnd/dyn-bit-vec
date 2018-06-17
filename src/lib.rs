@@ -221,7 +221,7 @@ impl DBVec {
 			let first_bit = last_bit >> 31;
 			last_bit = *word & 0b10000000_00000000_00000000_00000000u32;
 			*word = *word << 1;
-			*word &= *word & first_bit;
+			*word |= first_bit;
 		}
 	}
 
@@ -244,24 +244,23 @@ impl DBVec {
 		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 
-		let mut first_bit = false;
+		let mut first_bit = 0;
 		// for every word from end until word_index + 1: shift right; put first_bit as last bit; remember first_bit etc
 		for word in self.words.iter_mut().skip(word_index + 1).rev() {
-			let last_bit = first_bit;
-			first_bit = word.get_bit(0);
+			let last_bit = first_bit << 31;
+			first_bit = *word & 0b00000000_00000000_00000000_00000001u32;
 			*word = *word >> 1;
-			*word.set_bit(31, last_bit);
+			*word |= last_bit;
 		}
+		println!("self1: {:?}", self);
 
 		// delete the relevant bit
 		if let Some(word) = self.words.get_mut(word_index) {
-			for remaining_bit_index in bit_index..31 {
-				let next_bit = word.get_bit(remaining_bit_index + 1);
-				word.set_bit(remaining_bit_index, next_bit);
-			}
-			word.set_bit(31, first_bit);
+			Self::delete_from_word(word, bit_index);
+			*word |= first_bit << 31;
 		}
 
+		println!("self2: {:?}", self);
 		// decrease length and check if the last word is to be deleted
 		if self.cur_bit_index == 0 {
 			self.words.pop();
@@ -397,6 +396,23 @@ impl DBVec {
 				shifted_word | word_with_bit_set | *word
 			}
 		};
+	}
+
+	// delete a bit from a given word at index bit_index. The bits after bit_index shift one place towards the beginning
+	#[inline]
+	fn delete_from_word(word: &mut u32, bit_index: usize) {
+		match bit_index {
+			0  => *word = *word >> 1,
+			31 => *word = *word & 0b01111111_11111111_11111111_11111111u32,
+			_  => {
+				let shifted_word = ((MAX << bit_index + 1) & *word) >> 1;
+				println!("+++ shifted_word :  {:032b}", shifted_word);
+				let remaining_word = (MAX >> (32 - bit_index)) & *word;
+				println!("+++ remaining_word: {:032b}", remaining_word);
+				*word = shifted_word | remaining_word;
+			}
+		}
+		println!("+++ word after d: {:032b}", word);
 	}
 
 	// Returns true if 'other' is a subvector of 'self', starting at index 0.
@@ -958,7 +974,9 @@ use DBVec;
 		println!("initial vec: {:?}", vec);
 		vec.push(true);
 		println!("initial vec: {:?}", vec);
-		// TODO this is wrong!
+		vec.delete(5);
+		let result = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32]);
+		assert_eq!(vec, result);
 	}
 
 	#[test]
