@@ -252,7 +252,6 @@ impl DBVec {
 			*word = *word >> 1;
 			*word |= last_bit;
 		}
-		println!("self1: {:?}", self);
 
 		// delete the relevant bit
 		if let Some(word) = self.words.get_mut(word_index) {
@@ -260,7 +259,6 @@ impl DBVec {
 			*word |= first_bit << 31;
 		}
 
-		println!("self2: {:?}", self);
 		// decrease length and check if the last word is to be deleted
 		if self.cur_bit_index == 0 {
 			self.words.pop();
@@ -387,15 +385,21 @@ impl DBVec {
 	// insert a bit in a given word at index bit_index. The bits after bit_index shift one place towards the end
 	#[inline]
 	fn insert_in_word(word: &mut u32, bit_index: usize, bit: bool) {
-		let shifted_word = ((MAX << bit_index) & *word) << 1;
-		*word &= MAX >> (31 - bit_index);
-		*word = match bit {
-			false => shifted_word | *word,
-			true  => {
-				let word_with_bit_set = 1 << bit_index;
-				shifted_word | word_with_bit_set | *word
+		*word = match bit_index {
+			0  => *word << 1 | bit as u32,
+			31 => * word | (bit as u32) << 31,
+			_ => {
+				let shifted_word = ((MAX << bit_index) & *word) << 1;
+				*word &= MAX >> (32 - bit_index);
+				match bit {
+					false => shifted_word | *word,
+					true  => {
+						let word_with_bit_set = 1 << bit_index;
+						shifted_word | word_with_bit_set | *word
+					}
+				}
 			}
-		};
+		}
 	}
 
 	// delete a bit from a given word at index bit_index. The bits after bit_index shift one place towards the beginning
@@ -406,13 +410,10 @@ impl DBVec {
 			31 => *word = *word & 0b01111111_11111111_11111111_11111111u32,
 			_  => {
 				let shifted_word = ((MAX << bit_index + 1) & *word) >> 1;
-				println!("+++ shifted_word :  {:032b}", shifted_word);
 				let remaining_word = (MAX >> (32 - bit_index)) & *word;
-				println!("+++ remaining_word: {:032b}", remaining_word);
 				*word = shifted_word | remaining_word;
 			}
 		}
-		println!("+++ word after d: {:032b}", word);
 	}
 
 	// Returns true if 'other' is a subvector of 'self', starting at index 0.
@@ -445,9 +446,6 @@ impl DBVec {
 		if nr_bits == 0 {
 			return;
 		}
-		/*if self.cur_bit_index == 31 {
-			self.words.push(0u32);
-		}*/
 		let overflowing_bits = (MAX >> nr_bits) ^ MAX;
 
 		// check if next word needed? self.cur_bit_index + nr_bits > 32 ???
@@ -651,6 +649,23 @@ use DBVec;
 			vec.insert(true, c);
 			println!("{:?}", vec);
 		}
+	}
+
+	#[test]
+	fn insert_false() {
+		// insert 'false' into DBVec: (4, 3, 00000000000000000000000000001110 ) at 3
+		// result:             DBVec: (5, 4, 00000000000000000000000000011110 )
+		let mut vec = DBVec::new();
+		vec.push(false);
+		vec.push(true);
+		vec.push(true);
+		vec.push(true);
+		vec.insert(false, 3);
+		let exp  = DBVec {
+			words: vec!(0b10110u32),
+			cur_bit_index: 4
+		};
+		assert_eq!(vec, exp);
 	}
 
 	#[test]
