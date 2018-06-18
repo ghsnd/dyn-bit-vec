@@ -187,7 +187,8 @@ impl DBVec {
 		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 		if let Some(word) = self.words.get(word_index) {
-			word.get_bit(bit_index)
+			(word >> bit_index) & 1 == 1
+			//word.get_bit(bit_index)
 		} else {
 			panic!("Should not occur!");
 		}
@@ -688,6 +689,17 @@ use DBVec;
 		let len = vec.len();
 		assert_eq!(48, len);
 		assert_eq!(11, vec.rank_one(len));
+	}
+
+	#[test]
+	fn get() {
+		let mut vec = DBVec::from_elem(75, true);
+		vec.push(false);
+		println!("{:?}", vec);
+		for index in 0..75 {
+			assert_eq!(true, vec.get(index));
+		}
+		assert_eq!(false, vec.get(75));
 	}
 
 	#[test]
