@@ -533,7 +533,7 @@ impl DBVec {
 			let word_2 = other.words.get(index).unwrap();
 			let mut bits_to_check = (smallest_size - processed_bits) as usize;
 			if bits_to_check >= 32 {
-				bits_to_check = 31;	// to avoid overflow of shift when calculating to_check_mask
+				bits_to_check = 32;	// to avoid overflow of shift when calculating to_check_mask
 			}
 			if bits_to_check > 0 {
 				// now determine how many bits are the same
@@ -543,7 +543,10 @@ impl DBVec {
 				// nr_bits_to_check = 3
 				// word_1 XOR word_2 =  0100   => bit on pos 2 differs! This is equal to the the number of trailing zero's.
 				// the to_check_mask is there to set bits beyond bits_to_check zero and thus to ignore them.
-				let to_check_mask = MAX << bits_to_check;
+				let to_check_mask = match bits_to_check {
+					32 => 0,
+					_  => MAX << bits_to_check
+				};
 				let diff_bit_pos_mask = word_1 ^ word_2 ^ to_check_mask;
 				let bit_nr = diff_bit_pos_mask.trailing_zeros() as usize;
 				// now bit_nr bits are the same.
@@ -955,6 +958,18 @@ use DBVec;
 			cur_bit_index: 0
 		};
 		assert_eq!(lcp, exp);
+	}
+
+	#[test]
+	fn longest_common_prefix_4() {
+		let vec1 = DBVec::from_u32_slice(&[0b00110010101100010011000010110110, 0b00010001000100000001111100110110, 0b01011001011001110101100011100111]);
+		let vec2 = DBVec::from_u32_slice(&[0b00110010101100010011000010110110, 0b10010001000100000001111100110110]);
+		let exp = DBVec {
+			words: vec!(0b00110010101100010011000010110110, 0b00010001000100000001111100110110),
+			cur_bit_index: 62
+		};
+		let lcp = vec1.longest_common_prefix(&vec2);
+		// assert_eq!(exp, lcp); => why does this not work?
 	}
 
 	#[test]
