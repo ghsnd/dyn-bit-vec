@@ -155,11 +155,10 @@ impl DBVec {
 		// count ones until index in last word
 		let bit_index = (index % 32) as usize;
 		if bit_index != 0 {
-			if let &Some (last_word) = &self.words.last() {
-				let mask = !(MAX << bit_index);
-				let relevant_bits = mask & last_word;
-				nr_bits += relevant_bits.count_ones() as u64;
-			}
+			let word_to_check = self.words.get(words_index).unwrap();
+			let mask = !(MAX << bit_index);
+			let relevant_bits = mask & word_to_check;
+			nr_bits += relevant_bits.count_ones() as u64;
 		}
 		nr_bits
 	}
