@@ -474,15 +474,15 @@ impl DBVec {
 				*word = (*word >> nr_bits) | underflow;
 				underflow = new_underflow;
 			}
-
-			// check if last word can be deleted
-			if self.cur_bit_index == 0 {
-				self.cur_bit_index = 32;
-			} else if self.cur_bit_index < nr_bits {
-				self.cur_bit_index += 32;
+			if self.cur_bit_index < nr_bits {
 				self.words.pop();
+				if !self.words.is_empty() {
+					self.cur_bit_index += 32;
+					self.cur_bit_index = (self.cur_bit_index - nr_bits) % 32;
+				}
+			} else {
+				self.cur_bit_index = (self.cur_bit_index - nr_bits) % 32;
 			}
-			self.cur_bit_index = (self.cur_bit_index - nr_bits) % 32;
 		}
 	}
 
@@ -984,6 +984,18 @@ use DBVec;
 		println!("suffix2: {:?}", suffix2);
 		assert_eq!(bit2, true);
 		assert_eq!(suffix2, DBVec::from_elem(32, true));
+	}
+
+	#[test]
+	fn different_suffix_special_case() {
+		let mut vec = DBVec::new();
+		vec.push(true);
+		let (bit, suffix) = vec.different_suffix(0);
+		let exp = DBVec {
+			words: Vec::new(),
+			cur_bit_index: 0
+		};
+		assert_eq!( (true, exp), (bit, suffix));
 	}
 
 	#[test]
