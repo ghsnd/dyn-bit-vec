@@ -1,9 +1,7 @@
-extern crate bit_field;
-extern crate rayon;
+//extern crate rayon;
 use std::vec::Vec;
 use std::fmt;
-use self::bit_field::BitField;
-use self::rayon::prelude::*;
+//use self::rayon::prelude::*;
 use std::u32::MAX;
 use std::cmp;
 
@@ -142,7 +140,10 @@ impl DBVec {
 		// count ones in all words but last
 		let words_index = (index / 32) as usize;
 		let words_part = &self.words[..words_index];
-		let mut nr_bits = match index > 32000000 {
+		let mut nr_bits = words_part
+						.iter()
+						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+		/*let mut nr_bits = match index > 100000 {
 			false => words_part
 						.iter()
 						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64),
@@ -150,7 +151,7 @@ impl DBVec {
 						.par_iter()
 						.map(|word| word.count_ones() as u64)
 						.sum()
-		};
+		};*/
 
 		// count ones until index in last word
 		let bit_index = (index % 32) as usize;
@@ -183,14 +184,19 @@ impl DBVec {
 		if index >= self.len() {
 			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
-		let bit_index = (index % 32) as usize;
+		let bit_index = (index % 32) as u8;
 		let word_index = (index / 32) as usize;
 		if let Some(word) = self.words.get(word_index) {
-			(word >> bit_index) & 1 == 1
-			//word.get_bit(bit_index)
+			Self::get_bit_in_word(word, bit_index)
+			//(word >> bit_index) & 1 == 1
 		} else {
 			panic!("Should not occur!");
 		}
+	}
+
+	#[inline]
+	fn get_bit_in_word(word: &u32, index: u8) -> bool {
+		(word >> index) & 1 == 1
 	}
 
 	pub fn set_none(&mut self) {
@@ -232,7 +238,7 @@ impl DBVec {
 		if bit {
 			let word_index = self.words.len() - 1 as usize;
 			if let Some(word) = self.words.get_mut(word_index) {
-				word.set_bit(self.cur_bit_index as usize, bit);
+				* word |= (bit as u32) << self.cur_bit_index;
 			}
 		}
 	}
@@ -286,7 +292,7 @@ impl DBVec {
 			};
 			if count >= occurrence_nr {
 				for bit_index in 0..32 {
-					let word_bit = word.get_bit(bit_index);
+					let word_bit = Self::get_bit_in_word(word, bit_index as u8);
 					if word_bit == bit {
 						prev_count += 1;
 					}
