@@ -8,6 +8,7 @@ use std::cmp;
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DBVec {
 	words: Vec<u32>,
+	bit_counts: Vec<u16>,
 	cur_bit_index: u8	// current bit index in the last word.
 						// 0: first bit
 						// 0 and words.len() == 0: empty
@@ -21,6 +22,7 @@ impl DBVec {
 	pub fn new() -> Self {
 		DBVec {
 			words: Vec::new(),
+			bit_counts: Vec::new(),
 			cur_bit_index: 0,
 		}
 	}
@@ -28,10 +30,13 @@ impl DBVec {
 	pub fn from_u32_slice(slice: &[u32]) -> Self {
 		let mut temp_vec = Vec::with_capacity(slice.len());
 		temp_vec.extend_from_slice(slice);
-		DBVec {
+		let mut res = DBVec {
 			words: temp_vec,
 			cur_bit_index: 31,
-		}
+			bit_counts: Vec::new(),
+		};
+		res.init_bit_counts();
+		res
 	}
 
 	pub fn from_bytes(bytes: &[u8]) -> Self {
@@ -47,10 +52,13 @@ impl DBVec {
 		if bytes.len() % 4 != 0 {
 			temp_vec.push(temp_int);
 		}
-		DBVec {
+		let mut res = DBVec {
 			words: temp_vec,
 			cur_bit_index: ((bytes.len() * 8 - 1) % 32) as u8,
-		}
+			bit_counts: Vec::new(),
+		};
+		res.init_bit_counts();
+		res
 	}
 
 	pub fn from_elem(nbits: u64, bit: bool) -> Self {
@@ -72,18 +80,24 @@ impl DBVec {
 		} else {
 			word_vec.pop();
 		}
-		DBVec {
+		let mut res = DBVec {
 			words: word_vec,
-			cur_bit_index: ((31 + rem) % 32) as u8
-		}
+			cur_bit_index: ((31 + rem) % 32) as u8,
+			bit_counts: Vec::new(),
+		};
+		res.init_bit_counts();
+		res
 	}
 
 	pub fn copy(&self) -> Self {
 		let mut new_vec = Vec::with_capacity(self.words.len());
 		new_vec.extend(self.words.iter());
+		let mut new_bit_counts = Vec::with_capacity(self.bit_counts.len());
+		new_bit_counts.extend(self.bit_counts.iter());
 		DBVec {
 			words: new_vec,
-			cur_bit_index: self.cur_bit_index
+			cur_bit_index: self.cur_bit_index,
+			bit_counts: new_bit_counts,
 		}
 	}
 	////////////////////////
@@ -133,6 +147,15 @@ impl DBVec {
 
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
+	}
+
+	fn init_bit_counts(&mut self) {
+		for chunk in self.words.chunks(2048) {
+			let mut nr_bits = chunk
+							.iter()
+							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
+			self.bit_counts.push(nr_bits as u16);
+		}
 	}
 
 	// count ones *before* index.
@@ -516,7 +539,8 @@ impl DBVec {
 		}
 		DBVec {
 			words: other_words,
-			cur_bit_index: 0
+			cur_bit_index: 0,
+			bit_counts: Vec::new()	// TODO
 		}
 	}
 
@@ -577,7 +601,8 @@ impl DBVec {
 			cur_bit_index: match processed_bits {
 				0 => 0,
 				_ => ((processed_bits - 1) % 32) as u8
-			}
+			},
+			bit_counts: Vec::new()	// TODO
 		}
 	}
 
@@ -597,10 +622,20 @@ impl DBVec {
 impl fmt::Debug for DBVec {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let len = self.len();
-		let _a = write!(f, "DBVec: ({}, {}, ", len, self.rank_one(len));
+		let _a = write!(f, "DBVec:  ({}, {},\n  words: ", len, self.rank_one(len));
 		let mut count = 0u8;
 		for word in self.words.iter() {
 			let _b = write!(f, "{:032b} ", word);
+			count += 1;
+			if count == 100 {
+				count = 1;
+				let _c = write!(f, "\n");
+			}
+		}
+		count = 0;
+		let _c = write!(f, "\n counts: ");
+		for bit_count in self.bit_counts.iter() {
+			let _b = write!(f, "{}", bit_count);
 			count += 1;
 			if count == 100 {
 				count = 1;
@@ -672,7 +707,8 @@ use DBVec;
 		vec.insert(false, 3);
 		let exp  = DBVec {
 			words: vec!(0b10110u32),
-			cur_bit_index: 4
+			cur_bit_index: 4,
+			bit_counts: vec!(3),
 		};
 		assert_eq!(vec, exp);
 	}
@@ -913,7 +949,8 @@ use DBVec;
 		let vec2 = DBVec::from_u32_slice(&[0b11111111_11111111_11111011_11111111u32]);
 		let exp  = DBVec {
 			words: vec!(0b11_11111111u32),
-			cur_bit_index: 9
+			cur_bit_index: 9,
+			bit_counts: vec!(9),
 		};
 		let result = vec1.longest_common_prefix(&vec2);
 		assert_eq!(exp, result);
@@ -937,7 +974,8 @@ use DBVec;
 		let result = vec1.longest_common_prefix(&vec2);
 		let exp  = DBVec {
 			words: vec!(0b10111_10111000u32),
-			cur_bit_index: 12
+			cur_bit_index: 12,
+			bit_counts: vec!(8),
 		};
 		println!("{:?}", result);
 		assert_eq!(exp, result);
@@ -960,7 +998,8 @@ use DBVec;
 		println!("v1: {:?}\nv2: {:?}\nr : {:?}", vec1, vec2, lcp);
 		let exp = DBVec {
 			words: vec!(0),
-			cur_bit_index: 0
+			cur_bit_index: 0,
+			bit_counts: vec!(1),
 		};
 		assert_eq!(lcp, exp);
 	}
@@ -971,7 +1010,8 @@ use DBVec;
 		let vec2 = DBVec::from_u32_slice(&[0b00110010101100010011000010110110, 0b10010001000100000001111100110110]);
 		let exp = DBVec {
 			words: vec!(0b00110010101100010011000010110110, 0b00010001000100000001111100110110),
-			cur_bit_index: 62
+			cur_bit_index: 62,
+			bit_counts: vec!(26),
 		};
 		let lcp = vec1.longest_common_prefix(&vec2);
 		// assert_eq!(exp, lcp); => why does this not work?
@@ -999,7 +1039,8 @@ use DBVec;
 		let (bit, suffix) = vec.different_suffix(0);
 		let exp = DBVec {
 			words: Vec::new(),
-			cur_bit_index: 0
+			cur_bit_index: 0,
+			bit_counts: Vec::new(),
 		};
 		assert_eq!( (true, exp), (bit, suffix));
 	}
