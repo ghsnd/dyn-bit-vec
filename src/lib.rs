@@ -192,8 +192,13 @@ impl DBVec {
 	}
 
 	pub fn rank_one_2(&self, index: u64) -> u64 {
-		let bit_counts_index = index as usize % 65536;
-		self.bit_counts.iter().skip(bit_counts_index)
+		println!(" rank: self.bit_counts: {:?}", self.bit_counts);
+		let bit_counts_index = index as usize / 65536;
+		println!(" rank: bit_counts_index: {}", bit_counts_index);
+		self.bit_counts.iter()
+						.inspect(|x| println!("   count before skip {}", x))
+						.skip(bit_counts_index)
+						.inspect(|x| println!("   count after skip: {}", x))
 						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64)
 	}
 
@@ -271,14 +276,19 @@ impl DBVec {
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
 		let bit_counts_index_from = from % 2048;
+		println!(" bit_counts_index_from: {}", bit_counts_index_from);
 		//let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
 		self.bit_counts.truncate(bit_counts_index_from);
+		println!(" self.bit_counts: {:?}", self.bit_counts);
 		for chunk in self.words.chunks(2048).skip(bit_counts_index_from) {
+			println!("  chunk: {:?}", chunk);
 			let mut nr_bits = chunk
 							.iter()
 							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
+			println!("  nr_bits: {}", nr_bits);
 			self.bit_counts.push(nr_bits as u16);
 		}
+		println!(" self.bit_counts: {:?}", self.bit_counts);
 	}
 
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
