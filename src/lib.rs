@@ -144,9 +144,9 @@ impl DBVec {
 				self.cur_bit_index = 0;
 			}
 		}
-		if self.words.len() % 2048 == 0 {
+		/*if self.words.len() % 2048 == 0 {
 			self.bit_counts.push(0);
-		}
+		}*/
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -154,12 +154,7 @@ impl DBVec {
 	}
 
 	fn init_bit_counts(&mut self) {
-		for chunk in self.words.chunks(2048) {
-			let mut nr_bits = chunk
-							.iter()
-							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
-			self.bit_counts.push(nr_bits as u16);
-		}
+		self.calculate_bit_counts_from(0);
 	}
 
 	// count ones *before* index.
@@ -189,6 +184,10 @@ impl DBVec {
 			nr_bits += relevant_bits.count_ones() as u64;
 		}
 		nr_bits
+	}
+
+	pub fn rank_one_2(&self, index: u64) -> u64 {
+		self.rank_one(index)
 	}
 
 	pub fn rank_zero(&self, pos: u64) -> u64 {
@@ -240,9 +239,7 @@ impl DBVec {
 		if index > self.len() {
 			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
-		let bit_counts_len = self.bit_counts.len();
 		self.inc_len();
-		let new_bit_counts_len = self.bit_counts.len();
 		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 
@@ -262,17 +259,7 @@ impl DBVec {
 		}
 
 		// check if new bit_counts need to be calculated
-		if bit_counts_len == new_bit_counts_len {
-			if bit {
-				let bit_counts_index = word_index % 2048;
-				if let Some(bit_count) = self.bit_counts.get_mut(bit_counts_index) {
-					*bit_count += 1;
-				}
-			}
-		} else {
-			self.calculate_bit_counts_from(word_index);
-		}
-
+		self.calculate_bit_counts_from(word_index);
 	}
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
@@ -335,6 +322,8 @@ impl DBVec {
 		} else {
 			self.cur_bit_index -= 1;
 		}
+
+		self.calculate_bit_counts_from(word_index);
 	}
 
 	// Position (index) of occurrence_nr-th occurrence of bit. Starts at one!
@@ -398,6 +387,9 @@ impl DBVec {
 				}
 		};
 		self.words.append(&mut other.words);
+
+		// this might be not optimal:
+		self.init_bit_counts();
 	}
 
 //	pub fn insert_vec(&mut self, other: &mut Self, index: u64) {
