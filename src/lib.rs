@@ -135,6 +135,7 @@ impl DBVec {
 	fn inc_len(&mut self) {
 		if self.words.is_empty() {
 			self.words.push(0);
+			self.bit_counts.push(0);
 			self.cur_bit_index = 0;
 		} else {
 			self.cur_bit_index += 1;
@@ -142,6 +143,9 @@ impl DBVec {
 				self.words.push(0);
 				self.cur_bit_index = 0;
 			}
+		}
+		if self.words.len() % 2048 == 0 {
+			self.bit_counts.push(0);
 		}
 	}
 
@@ -226,6 +230,9 @@ impl DBVec {
 		for word in &mut self.words {
 			*word = 0;
 		}
+		for bit_count in &mut self.bit_counts {
+			*bit_count = 0;
+		}
 	}
 
 	// insert a bit at position 'index'
@@ -233,7 +240,9 @@ impl DBVec {
 		if index > self.len() {
 			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
+		let bit_counts_len = self.bit_counts.len();
 		self.inc_len();
+		let new_bit_counts_len = self.bit_counts.len();
 		let bit_index = (index % 32) as usize;
 		let word_index = (index / 32) as usize;
 
@@ -245,12 +254,36 @@ impl DBVec {
 		} 
 
 		// for every word from word_index + 1 until end: shift left; put last_bit as first bit; remember last_bit etc
-		let word_iter = self.words.iter_mut().skip(word_index + 1);
-		for word in word_iter {
+		for word in self.words.iter_mut().skip(word_index + 1) {
 			let first_bit = last_bit >> 31;
 			last_bit = *word & 0b10000000_00000000_00000000_00000000u32;
 			*word = *word << 1;
 			*word |= first_bit;
+		}
+
+		// check if new bit_counts need to be calculated
+		if bit_counts_len == new_bit_counts_len {
+			if bit {
+				let bit_counts_index = word_index % 2048;
+				if let Some(bit_count) = self.bit_counts.get_mut(bit_counts_index) {
+					*bit_count += 1;
+				}
+			}
+		} else {
+			self.calculate_bit_counts_from(word_index);
+		}
+
+	}
+
+	fn calculate_bit_counts_from(&mut self, from: usize) {
+		let bit_counts_index_from = from % 2048;
+		let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
+		self.bit_counts.truncate(bit_counts_to_keep);
+		for chunk in self.words.chunks(2048).skip(bit_counts_to_keep) {
+			let mut nr_bits = chunk
+							.iter()
+							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
+			self.bit_counts.push(nr_bits as u16);
 		}
 	}
 
@@ -263,10 +296,15 @@ impl DBVec {
 			if let Some(word) = self.words.get_mut(word_index) {
 				* word |= (bit as u32) << self.cur_bit_index;
 			}
+			// just increment last bit_counts
+			if let Some(bit_count) = self.bit_counts.get_mut(word_index % 2048) {
+				*bit_count += 1;
+			}
 		}
 	}
 
 	pub fn delete(&mut self, index: u64) {
+		// TODO: here
 		if index > self.len() {
 			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
