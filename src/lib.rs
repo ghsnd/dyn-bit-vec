@@ -192,14 +192,32 @@ impl DBVec {
 	}
 
 	pub fn rank_one_2(&self, index: u64) -> u64 {
-		println!(" rank: self.bit_counts: {:?}", self.bit_counts);
+		// accumulate counted ones until before index
+		let mut nr_bits = 0;
 		let bit_counts_index = index as usize / 65536;
-		println!(" rank: bit_counts_index: {}", bit_counts_index);
-		self.bit_counts.iter()
-						.inspect(|x| println!("   count before skip {}", x))
-						.skip(bit_counts_index)
-						.inspect(|x| println!("   count after skip: {}", x))
-						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64)
+		if bit_counts_index > 0 {
+			nr_bits += self.bit_counts.iter()
+						.skip(bit_counts_index - 1)
+						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64);
+		}
+
+		// now count ones in all words but the last
+		let start_word_index = bit_counts_index * 2048;
+		let end_words_index = index as usize / 32;
+		let words_part = &self.words[start_word_index..end_words_index];
+		nr_bits += words_part
+						.iter()
+						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+
+		// count ones until index in last word
+		let bit_index = (index % 32) as usize;
+		if bit_index != 0 {
+			let word_to_check = self.words.get(end_words_index).unwrap();
+			let mask = !(MAX << bit_index);
+			let relevant_bits = mask & word_to_check;
+			nr_bits += relevant_bits.count_ones() as u64;
+		}
+		nr_bits
 	}
 
 	pub fn rank_zero(&self, pos: u64) -> u64 {
