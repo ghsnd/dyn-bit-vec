@@ -204,10 +204,12 @@ impl DBVec {
 		// now count ones in all words but the last
 		let start_word_index = bit_counts_index * 2048;
 		let end_words_index = index as usize / 32;
-		let words_part = &self.words[start_word_index..end_words_index];
-		nr_bits += words_part
+		if start_word_index != end_words_index {
+			let words_part = &self.words[start_word_index..end_words_index];
+			nr_bits += words_part
 						.iter()
 						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
+		}
 
 		// count ones until index in last word
 		let bit_index = (index % 32) as usize;
