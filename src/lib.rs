@@ -264,9 +264,9 @@ impl DBVec {
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
 		let bit_counts_index_from = from % 2048;
-		let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
-		self.bit_counts.truncate(bit_counts_to_keep);
-		for chunk in self.words.chunks(2048).skip(bit_counts_to_keep) {
+		//let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
+		self.bit_counts.truncate(bit_counts_index_from);
+		for chunk in self.words.chunks(2048).skip(bit_counts_index_from) {
 			let mut nr_bits = chunk
 							.iter()
 							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
@@ -291,7 +291,6 @@ impl DBVec {
 	}
 
 	pub fn delete(&mut self, index: u64) {
-		// TODO: here
 		if index > self.len() {
 			panic!("Index out of bounds: index = {} while the length is {}", index, self.len());
 		}
@@ -521,6 +520,9 @@ impl DBVec {
 			*word = (*word << nr_bits) | overflow;
 			overflow = new_overflow;
 		}
+
+		// recalculate bit counts: there could be shifts
+		self.init_bit_counts();
 	}
 
 	// Shifts everything nr_bits (max 31 bits) towards the beginning of the vector; the vector shrinks.
@@ -543,6 +545,9 @@ impl DBVec {
 				self.cur_bit_index = (self.cur_bit_index - nr_bits) % 32;
 			}
 		}
+
+		// recalculate bit counts: there could be shifts
+		self.init_bit_counts();
 	}
 
 	// split the vector at index 'at'. DOES NOT ALIGN SECOND PART!!
@@ -567,11 +572,17 @@ impl DBVec {
 				self.words.push(last_of_self);
 			}
 		}
-		DBVec {
+
+		// now recalculate bit counts of self
+		self.init_bit_counts();
+
+		let mut other = DBVec {
 			words: other_words,
 			cur_bit_index: 0,
-			bit_counts: Vec::new()	// TODO
-		}
+			bit_counts: Vec::new()
+		};
+		other.init_bit_counts();
+		other
 	}
 
 	// returns the longest common prefix of self and the other
@@ -626,14 +637,17 @@ impl DBVec {
 				processed_bits = smallest_size;
 			}
 		}
-		DBVec {
+
+		let mut common_prefix = DBVec {
 			words: common_words,
 			cur_bit_index: match processed_bits {
 				0 => 0,
 				_ => ((processed_bits - 1) % 32) as u8
 			},
-			bit_counts: Vec::new()	// TODO
-		}
+			bit_counts: Vec::new()
+		};
+		common_prefix.init_bit_counts();
+		common_prefix
 	}
 
 	pub fn different_suffix(&self, at: u64) -> (bool, Self) {
@@ -980,7 +994,7 @@ use DBVec;
 		let exp  = DBVec {
 			words: vec!(0b11_11111111u32),
 			cur_bit_index: 9,
-			bit_counts: vec!(9),
+			bit_counts: vec!(10),
 		};
 		let result = vec1.longest_common_prefix(&vec2);
 		assert_eq!(exp, result);
@@ -1029,7 +1043,7 @@ use DBVec;
 		let exp = DBVec {
 			words: vec!(0),
 			cur_bit_index: 0,
-			bit_counts: vec!(1),
+			bit_counts: vec!(0),
 		};
 		assert_eq!(lcp, exp);
 	}
