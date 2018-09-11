@@ -275,7 +275,7 @@ impl DBVec {
 	}
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
-		let bit_counts_index_from = from % 2048;
+		let bit_counts_index_from = from / 2048;
 		println!(" bit_counts_index_from: {}", bit_counts_index_from);
 		//let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
 		self.bit_counts.truncate(bit_counts_index_from);
@@ -301,7 +301,7 @@ impl DBVec {
 				* word |= (bit as u32) << self.cur_bit_index;
 			}
 			// just increment last bit_counts
-			if let Some(bit_count) = self.bit_counts.get_mut(word_index % 2048) {
+			if let Some(bit_count) = self.bit_counts.get_mut(word_index / 2048) {
 				*bit_count += 1;
 			}
 		}
