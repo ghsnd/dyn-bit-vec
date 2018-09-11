@@ -183,11 +183,18 @@ impl DBVec {
 			let relevant_bits = mask & word_to_check;
 			nr_bits += relevant_bits.count_ones() as u64;
 		}
+
+		let nr_bits_2 = self.rank_one_2(index);
+
+		assert_eq!(nr_bits, nr_bits_2);
+
 		nr_bits
 	}
 
 	pub fn rank_one_2(&self, index: u64) -> u64 {
-		self.rank_one(index)
+		let bit_counts_index = index as usize % 65536;
+		self.bit_counts.iter().skip(bit_counts_index)
+						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64)
 	}
 
 	pub fn rank_zero(&self, pos: u64) -> u64 {
