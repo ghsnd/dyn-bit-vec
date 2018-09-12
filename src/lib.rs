@@ -184,22 +184,37 @@ impl DBVec {
 			nr_bits += relevant_bits.count_ones() as u64;
 		}
 
-		let nr_bits_2 = self.rank_one_2(index);
+		/*let nr_bits_2 = self.rank_one_2(index);
 
-		assert_eq!(nr_bits, nr_bits_2);
+		if nr_bits != nr_bits_2 {
+			println!("len: {}, index: {}", self.len(), index);
+			println!("bit_counts: {:?}", self.bit_counts);
+			for word in self.words.iter() {
+				print!("{:032b}", word);
+			}
+		}
+		assert_eq!(nr_bits, nr_bits_2);*/
 
 		nr_bits
 	}
 
 	pub fn rank_one_2(&self, index: u64) -> u64 {
+
+		// if asked for bit counts of the whole vector, just sum all
+		if index == self.len() {
+			return self.bit_counts.iter()
+						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64);
+		}
+
 		// accumulate counted ones until before index
 		let mut nr_bits = 0;
 		let bit_counts_index = index as usize / 65536;
 		if bit_counts_index > 0 {
 			nr_bits += self.bit_counts.iter()
-						.skip(bit_counts_index - 1)
+						.take(bit_counts_index)
 						.fold(0, |nr_bits, bit_count| nr_bits + *bit_count as u64);
 		}
+		//println!("nr_bits 1: {}", nr_bits);
 
 		// now count ones in all words but the last
 		let start_word_index = bit_counts_index * 2048;
@@ -210,6 +225,7 @@ impl DBVec {
 						.iter()
 						.fold(0, |nr_bits, word| nr_bits + word.count_ones() as u64);
 		}
+		//println!("nr_bits 2: {}", nr_bits);
 
 		// count ones until index in last word
 		let bit_index = (index % 32) as usize;
@@ -219,6 +235,7 @@ impl DBVec {
 			let relevant_bits = mask & word_to_check;
 			nr_bits += relevant_bits.count_ones() as u64;
 		}
+		//println!("nr_bits 3: {}", nr_bits);
 		nr_bits
 	}
 
@@ -226,14 +243,14 @@ impl DBVec {
 		if pos == 0 {
 			pos
 		} else {
-			pos - self.rank_one(pos)
+			pos - self.rank_one_2(pos)
 		}
 	}
 
 	pub fn rank(&self, bit: bool, pos: u64) -> u64 {
 		match bit {
 			false => self.rank_zero(pos),
-			true => self.rank_one(pos)
+			true => self.rank_one_2(pos)
 		}
 	}
 
@@ -296,19 +313,14 @@ impl DBVec {
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
 		let bit_counts_index_from = from / 2048;
-		println!(" bit_counts_index_from: {}", bit_counts_index_from);
 		//let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
 		self.bit_counts.truncate(bit_counts_index_from);
-		println!(" self.bit_counts: {:?}", self.bit_counts);
 		for chunk in self.words.chunks(2048).skip(bit_counts_index_from) {
-			println!("  chunk: {:?}", chunk);
 			let mut nr_bits = chunk
 							.iter()
 							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
-			println!("  nr_bits: {}", nr_bits);
 			self.bit_counts.push(nr_bits as u16);
 		}
-		println!(" self.bit_counts: {:?}", self.bit_counts);
 	}
 
 	// push a bit to the end. This can slightly more efficient than insert(bit, len())
