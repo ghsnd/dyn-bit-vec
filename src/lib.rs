@@ -706,7 +706,7 @@ impl DBVec {
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
 		result_vec.cur_bit_index = self.cur_bit_index;
 		result_vec.shift_to_begin(at_bit);	// the shift corrects cur_bit_index
-		result.init_bit_counts();
+		result_vec.init_bit_counts();
 		(first_bit, result_vec)
 	}
 
