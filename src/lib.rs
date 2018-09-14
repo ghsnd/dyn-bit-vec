@@ -328,12 +328,11 @@ impl DBVec {
 	pub fn push(&mut self, bit: bool) {
 		self.inc_len();
 		if bit {
-			let word_index = self.words.len() - 1 as usize;
-			if let Some(word) = self.words.get_mut(word_index) {
+			if let Some(word) = self.words.last_mut() {
 				* word |= (bit as u32) << self.cur_bit_index;
 			}
 			// just increment last bit_counts
-			if let Some(bit_count) = self.bit_counts.get_mut(word_index / 2048) {
+			if let Some(bit_count) = self.bit_counts.last_mut() {
 				*bit_count += 1;
 			}
 		}
@@ -707,6 +706,7 @@ impl DBVec {
 		let mut result_vec = DBVec::from_u32_slice(&self.words[at_word..]);
 		result_vec.cur_bit_index = self.cur_bit_index;
 		result_vec.shift_to_begin(at_bit);	// the shift corrects cur_bit_index
+		result.init_bit_counts();
 		(first_bit, result_vec)
 	}
 
