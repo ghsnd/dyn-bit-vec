@@ -140,13 +140,14 @@ impl DBVec {
 		} else {
 			self.cur_bit_index += 1;
 			if self.cur_bit_index == 32 {
+				if self.words.len() % 2047 == 0 {
+					self.bit_counts.push(0);
+				}
 				self.words.push(0);
 				self.cur_bit_index = 0;
 			}
 		}
-		/*if self.words.len() % 2048 == 0 {
-			self.bit_counts.push(0);
-		}*/
+		
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -158,7 +159,7 @@ impl DBVec {
 	}
 
 	// count ones *before* index.
-	pub fn rank_one(&self, index: u64) -> u64 {
+	pub fn rank_one_old(&self, index: u64) -> u64 {
 		// count ones in all words but last
 		let words_index = (index / 32) as usize;
 		let words_part = &self.words[..words_index];
@@ -198,7 +199,7 @@ impl DBVec {
 		nr_bits
 	}
 
-	pub fn rank_one_2(&self, index: u64) -> u64 {
+	pub fn rank_one(&self, index: u64) -> u64 {
 
 		// if asked for bit counts of the whole vector, just sum all
 		if index == self.len() {
@@ -208,7 +209,7 @@ impl DBVec {
 
 		// accumulate counted ones until before index
 		let mut nr_bits = 0;
-		let bit_counts_index = index as usize / 65536;
+		let bit_counts_index = index as usize / 32 / 2047;
 		if bit_counts_index > 0 {
 			nr_bits += self.bit_counts.iter()
 						.take(bit_counts_index)
@@ -217,7 +218,7 @@ impl DBVec {
 		//println!("nr_bits 1: {}", nr_bits);
 
 		// now count ones in all words but the last
-		let start_word_index = bit_counts_index * 2048;
+		let start_word_index = bit_counts_index * 2047;
 		let end_words_index = index as usize / 32;
 		if start_word_index != end_words_index {
 			let words_part = &self.words[start_word_index..end_words_index];
@@ -243,14 +244,14 @@ impl DBVec {
 		if pos == 0 {
 			pos
 		} else {
-			pos - self.rank_one_2(pos)
+			pos - self.rank_one(pos)
 		}
 	}
 
 	pub fn rank(&self, bit: bool, pos: u64) -> u64 {
 		match bit {
 			false => self.rank_zero(pos),
-			true => self.rank_one_2(pos)
+			true => self.rank_one(pos)
 		}
 	}
 
@@ -312,10 +313,10 @@ impl DBVec {
 	}
 
 	fn calculate_bit_counts_from(&mut self, from: usize) {
-		let bit_counts_index_from = from / 2048;
+		let bit_counts_index_from = from / 2047;
 		//let bit_counts_to_keep = self.bit_counts.len() - bit_counts_index_from;
 		self.bit_counts.truncate(bit_counts_index_from);
-		for chunk in self.words.chunks(2048).skip(bit_counts_index_from) {
+		for chunk in self.words.chunks(2047).skip(bit_counts_index_from) {
 			let mut nr_bits = chunk
 							.iter()
 							.fold(0, |nr_bits, word| nr_bits + word.count_ones());
@@ -622,7 +623,8 @@ impl DBVec {
 		}
 
 		// now recalculate bit counts of self
-		self.init_bit_counts();
+		let recount_bits_from = self.words.len() - 1;
+		self.calculate_bit_counts_from(recount_bits_from);
 
 		let mut other = DBVec {
 			words: other_words,
@@ -930,9 +932,9 @@ use DBVec;
 		let mut short_vec = DBVec::new();
 		short_vec.push(false);
 		short_vec.push(true);
-		println!("{:?}", short_vec);
+		//println!("{:?}", short_vec);
 		let tail_vec = short_vec.split(2);
-		println!("tail: {:?}", tail_vec);
+		//println!("tail: {:?}", tail_vec);
 		assert!(tail_vec.is_empty());
 		assert_eq!(short_vec.len(), 2);
 		assert_eq!(short_vec.rank_one(2), 1);
@@ -942,9 +944,9 @@ use DBVec;
 	fn split_two_in_half() {
 		// split a vector of 2 words into 2 of one word
 		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
-		println!("{:?}", vec);
+		//println!("{:?}", vec);
 		let tail_vec = vec.split(32);
-		println!("tail: {:?}", tail_vec);
+		//println!("tail: {:?}", tail_vec);
 		assert_eq!(vec.words, &[0b11111111_11111111_11111111_11111111u32]);
 		assert_eq!(tail_vec.words, &[0b11111111_11111111_11111111_11111111u32]);
 	}
@@ -953,9 +955,9 @@ use DBVec;
 	fn split_somewhere_else() {
 		// split a vector of 2 words somewhere in the second word
 		let mut vec = DBVec::from_u32_slice(&[0b11111111_11111111_11111111_11111111u32, 0b11111111_11111111_11111111_11111111u32]);
-		println!("{:?}", vec);
+		//println!("{:?}", vec);
 		let tail_vec = vec.split(34);
-		println!("tail: {:?}", tail_vec);
+		//println!("tail: {:?}", tail_vec);
 		assert_eq!(tail_vec.words, &[0b11111111_11111111_11111111_11111100u32]);
 	}
 
@@ -1207,6 +1209,17 @@ use DBVec;
 			println!("{:?}", vec);
 			let byte_vec_2 = vec.to_bytes();
 			assert_eq!(byte_vec, byte_vec_2);
+		}
+	}
+
+	#[test]
+	fn long_bit_counts() {
+		let mut vec = DBVec::new();
+		for nr_bits in 0..196520 {	// at least 3 bit_counts
+			vec.push(true);
+			println!("{:?}", vec.bit_counts);
+			let rank = vec.rank_one(nr_bits);
+			assert_eq!(nr_bits, rank);
 		}
 	}
 }
