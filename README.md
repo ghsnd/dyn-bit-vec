@@ -3,8 +3,7 @@
 
 This crate contains a bit vector that supports only operations used in
 [Wavelet trie](https://github.com/ghsnd/wavelet-trie). Other operations
-might be added in the future, but for a "traditional" bit vector see
-for instance [bit-vec](https://crates.io/crates/bit-vec).
+might be added in the future, but it is recommended to use [other bit vector implementations](https://crates.io/search?q=bitvec).
 
 ### Bit operations supported:
 
