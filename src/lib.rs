@@ -712,6 +712,28 @@ impl DBVec {
 		(first_bit, result_vec)
 	}
 
+	pub fn sparseness(&self) -> u8 {
+		let mut total_same_bytes = 0;
+		let mut last_byte = 1;	// just has to be not 0 or 255
+		let mut sparseness = 0;
+		if !self.is_empty() {
+			let bytes = self.to_bytes();
+			let nr_bytes = bytes.len();
+			for byte in bytes {
+				if byte == 0 || byte == 255 {
+					if byte == last_byte {
+						total_same_bytes += 1;
+					} else {
+						last_byte = byte;
+					}
+					total_same_bytes += 1;
+				}
+			}
+			sparseness = (total_same_bytes * 50 / nr_bytes) as u8;
+		}
+		sparseness
+	}
+
 }
 
 impl fmt::Debug for DBVec {
@@ -1221,5 +1243,23 @@ use DBVec;
 			let rank = vec.rank_one(nr_bits);
 			assert_eq!(nr_bits, rank);
 		}
+	}
+
+	#[test]
+	fn sparseness() {
+		let vec_of_zeros = vec!(0; 100);
+		let dbvec_of_zeros = DBVec::from_u32_slice(&vec_of_zeros);
+		println!("sparseness: {}", dbvec_of_zeros.sparseness());
+		assert_eq!(99, dbvec_of_zeros.sparseness());
+
+		let vec_of_ones = vec!(0b11111111_11111111_11111111_11111111u32; 100);
+		let dbvec_of_ones = DBVec::from_u32_slice(&vec_of_ones);
+		println!("sparseness: {}", dbvec_of_ones.sparseness());
+		assert_eq!(99, dbvec_of_ones.sparseness());
+
+		let vec_of_something_else = vec!(0b11111110_11111101_11111011_11011111u32; 100);
+		let dbvec_of_something_else = DBVec::from_u32_slice(&vec_of_something_else);
+		println!("sparseness: {}", dbvec_of_something_else.sparseness());
+		assert_eq!(0, dbvec_of_something_else.sparseness());
 	}
 }
