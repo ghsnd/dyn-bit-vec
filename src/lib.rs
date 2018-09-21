@@ -716,7 +716,7 @@ impl DBVec {
 		let mut total_same_bytes = 0;
 		let mut last_byte = 1;	// just has to be not 0 or 255
 		let mut sparseness = 0;
-		if !self.is_empty() {
+		if self.len() > 7 {
 			let bytes = self.to_bytes();
 			let nr_bytes = bytes.len();
 			for byte in bytes {
