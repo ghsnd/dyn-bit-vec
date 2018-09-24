@@ -734,6 +734,10 @@ impl DBVec {
 		sparseness
 	}
 
+	pub fn allocated_bytes(&self) -> usize {
+		self.words.capacity() * 4 + self.bit_counts.capacity() * 2 + 1
+	}
+
 }
 
 impl fmt::Debug for DBVec {
