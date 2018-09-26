@@ -1,11 +1,17 @@
-//extern crate rayon;
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate bincode;
+
 use std::vec::Vec;
 use std::fmt;
-//use self::rayon::prelude::*;
 use std::u32::MAX;
 use std::cmp;
+use std::io::{Read, Write};
+use bincode::{serialize_into, deserialize_from};
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct DBVec {
 	words: Vec<u32>,
 	bit_counts: Vec<u16>,
@@ -738,6 +744,14 @@ impl DBVec {
 		self.words.capacity() * 4 + self.bit_counts.capacity() * 2 + 1
 	}
 
+	pub fn serialize(&self, writer: &mut Write) -> bincode::Result<()> {
+		serialize_into(writer, self)
+	}
+
+	pub fn deserialize(reader: &mut Read) -> bincode::Result<Self> {
+		deserialize_from(reader)
+	}
+
 }
 
 impl fmt::Debug for DBVec {
@@ -769,8 +783,11 @@ impl fmt::Debug for DBVec {
 
 #[cfg(test)]
 mod tests {
+	extern crate tempfile;
 
-use DBVec;
+	use DBVec;
+	use self::tempfile::NamedTempFile;
+	use std::io::Write;
 
 	#[test]
 	fn from_u32_slice() {
@@ -1131,11 +1148,11 @@ use DBVec;
 		let vec2 = DBVec::from_u32_slice(&[0b00110010101100010011000010110110, 0b10010001000100000001111100110110]);
 		let exp = DBVec {
 			words: vec!(0b00110010101100010011000010110110, 0b00010001000100000001111100110110),
-			cur_bit_index: 62,
+			cur_bit_index: 30,
 			bit_counts: vec!(26),
 		};
 		let lcp = vec1.longest_common_prefix(&vec2);
-		// assert_eq!(exp, lcp); => why does this not work?
+		assert_eq!(exp, lcp);
 	}
 
 	#[test]
@@ -1265,5 +1282,30 @@ use DBVec;
 		let dbvec_of_something_else = DBVec::from_u32_slice(&vec_of_something_else);
 		println!("sparseness: {}", dbvec_of_something_else.sparseness());
 		assert_eq!(0, dbvec_of_something_else.sparseness());
+	}
+
+	#[test]
+	fn de_serialize() {
+		let vec = vec!(42; 100);
+		let dbvec = DBVec::from_u32_slice(&vec);
+		println!("original: {:?}", dbvec);
+
+		// encode into vector
+		let mut encoded: Vec<u8> = Vec::new();
+		dbvec.serialize(&mut encoded).unwrap();
+		println!("serialized: {:?}", encoded);
+
+		// write to temp file
+		let mut write_file = NamedTempFile::new().unwrap();	// using a NamedTempFile is easy to reopen. This test *can* fail if a temp file cleaner decided to clean the file...
+		write_file.write(&encoded).unwrap();
+		write_file.write(b" some extra bytes!").unwrap(); // to see if only the needed bytes are deserialized...
+		write_file.flush().unwrap();
+
+		// read back
+		let mut read_file = write_file.reopen().unwrap();
+		let dbvec2 = DBVec::deserialize(&mut read_file).unwrap();
+		println!("read from file: {:?}", dbvec);
+
+		assert_eq!(dbvec, dbvec2);
 	}
 }

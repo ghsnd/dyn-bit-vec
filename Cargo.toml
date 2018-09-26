@@ -3,5 +3,8 @@ name = "dyn-bit-vec"
 version = "0.1.0"
 authors = ["Gerald H <gh@example.com>"]
 
-# [dependencies]
-# rayon = "1.0"
+[dependencies]
+serde = "1.0.79"
+serde_derive = "1.0.79"
+bincode = "1.0.1"
+tempfile = "3.0.4"
